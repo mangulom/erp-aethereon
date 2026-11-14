@@ -1,0 +1,14 @@
+{
+  "/api/v1/finance": {
+    "target": "http://127.0.0.1:18003",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "warn"
+  },
+  "/api": {
+    "target": "http://127.0.0.1:8001",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "warn"
+  }
+}

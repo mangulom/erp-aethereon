@@ -1,0 +1,19 @@
+{
+  "name": "erp-aethereon-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ERP multisectorial, multiempresa y basada en microfrontends/microservicios.",
+  "scripts": {
+    "dev": "concurrently -k -n shell,identity -c blue,green \"npm:dev:shell\" \"npm:dev:identity\"",
+    "dev:db": "docker compose up -d postgres",
+    "dev:shell": "npm --prefix frontend start",
+    "dev:identity": "python backend/run.py",
+    "build": "npm --prefix frontend run build",
+    "install:all": "npm install --ignore-scripts --no-audit --no-fund && npm --prefix frontend install --ignore-scripts --no-audit --no-fund --package-lock=false",
+    "test:frontend": "npm --prefix frontend test -- --watch=false",
+    "test:identity": "python -m pytest -p no:cacheprovider backend/services/identity/tests -q -o cache_dir=%TEMP%/opencode/pytest-erp-aethereon"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

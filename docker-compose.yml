@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: aethereon-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aethereon_erp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_USER: ${POSTGRES_USER:-aethereon}
+      PGPORT: 5432
+      TZ: America/Lima
+    ports:
+      - "127.0.0.1:15433:5432"
+    volumes:
+      - aethereon-postgres:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  aethereon-postgres:

@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data_url TEXT;
+COMMIT;

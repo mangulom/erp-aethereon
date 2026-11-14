@@ -1,0 +1,19 @@
+import { Routes } from '@angular/router';
+import { authGuard, platformAdminGuard } from './core/auth.guard';
+
+export const routes: Routes = [
+  { path: 'login', loadComponent: () => import('./pages/login/login.component').then((module) => module.LoginComponent) },
+  {
+    path: '', canActivate: [authGuard], children: [
+      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+      { path: 'dashboard', loadComponent: () => import('./pages/dashboard/dashboard.component').then((module) => module.DashboardComponent) },
+      { path: 'finance', loadComponent: () => import('./pages/finance/finance.component').then((module) => module.FinanceComponent) },
+      { path: 'administration', loadComponent: () => import('./pages/administration/administration.component').then((module) => module.AdministrationComponent) },
+      { path: 'maintenance', pathMatch: 'full', redirectTo: 'maintenance/companies' },
+      { path: 'maintenance/:section', canActivate: [platformAdminGuard], loadComponent: () => import('./pages/maintenance/maintenance.component').then((module) => module.MaintenanceComponent) },
+      { path: 'modules', loadComponent: () => import('./pages/modules/modules.component').then((module) => module.ModulesComponent) },
+      { path: 'settings', loadComponent: () => import('./pages/settings/settings.component').then((module) => module.SettingsComponent) },
+      { path: '**', redirectTo: 'dashboard' },
+    ],
+  },
+];

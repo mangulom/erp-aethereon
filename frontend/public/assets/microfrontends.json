@@ -1,0 +1,252 @@
+﻿{
+    "schemaVersion":  1,
+    "shell":  {
+                  "name":  "Aethereon ERP Shell",
+                  "developmentUrl":  "http://localhost:4200"
+              },
+    "moduleStrategy":  "shell-lazy-routes",
+    "modules":  [
+                    {
+                        "code":  "dashboard",
+                        "name":  "Dashboard ejecutivo",
+                        "group":  "General",
+                        "route":  "/dashboard",
+                        "service":  "platform",
+                        "apiBaseUrl":  "http://localhost:10002",
+                        "frontendPort":  4200,
+                        "enabled":  true,
+                        "state":  "development"
+                    },
+                    {
+                        "code":  "ai-command",
+                        "name":  "AI Command Center",
+                        "group":  "Inteligencia",
+                        "route":  "/ai",
+                        "service":  "ai-command",
+                        "apiBaseUrl":  "http://localhost:10022",
+                        "frontendPort":  42022,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "finance",
+                        "name":  "Finanzas y tesorerÃ­a",
+                        "group":  "GestiÃ³n financiera",
+                        "route":  "/finance",
+                        "service":  "finance",
+                        "apiBaseUrl":  "http://localhost:10003",
+                        "frontendPort":  42003,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "accounting",
+                        "name":  "Contabilidad y tributaciÃ³n",
+                        "group":  "GestiÃ³n financiera",
+                        "route":  "/accounting",
+                        "service":  "accounting",
+                        "apiBaseUrl":  "http://localhost:10004",
+                        "frontendPort":  42004,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "sales",
+                        "name":  "Ventas y CRM",
+                        "group":  "Operaciones",
+                        "route":  "/sales",
+                        "service":  "sales",
+                        "apiBaseUrl":  "http://localhost:10005",
+                        "frontendPort":  42005,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "procurement",
+                        "name":  "Compras y proveedores",
+                        "group":  "Operaciones",
+                        "route":  "/procurement",
+                        "service":  "procurement",
+                        "apiBaseUrl":  "http://localhost:10006",
+                        "frontendPort":  42006,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "inventory",
+                        "name":  "Inventarios y almacenes",
+                        "group":  "Operaciones",
+                        "route":  "/inventory",
+                        "service":  "inventory",
+                        "apiBaseUrl":  "http://localhost:10007",
+                        "frontendPort":  42007,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "logistics",
+                        "name":  "LogÃ­stica y distribuciÃ³n",
+                        "group":  "Operaciones",
+                        "route":  "/logistics",
+                        "service":  "logistics",
+                        "apiBaseUrl":  "http://localhost:10008",
+                        "frontendPort":  42008,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "people",
+                        "name":  "Recursos humanos",
+                        "group":  "Personas y planta",
+                        "route":  "/people",
+                        "service":  "people",
+                        "apiBaseUrl":  "http://localhost:10009",
+                        "frontendPort":  42009,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "payroll",
+                        "name":  "NÃ³mina peruana",
+                        "group":  "Personas y planta",
+                        "route":  "/payroll",
+                        "service":  "payroll",
+                        "apiBaseUrl":  "http://localhost:10010",
+                        "frontendPort":  42010,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "manufacturing",
+                        "name":  "ProducciÃ³n y MRP",
+                        "group":  "Personas y planta",
+                        "route":  "/manufacturing",
+                        "service":  "manufacturing",
+                        "apiBaseUrl":  "http://localhost:10011",
+                        "frontendPort":  42011,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "projects",
+                        "name":  "Proyectos",
+                        "group":  "Personas y planta",
+                        "route":  "/projects",
+                        "service":  "projects",
+                        "apiBaseUrl":  "http://localhost:10012",
+                        "frontendPort":  42012,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "maintenance",
+                        "name":  "Mantenimiento y activos",
+                        "group":  "Personas y planta",
+                        "route":  "/maintenance",
+                        "service":  "maintenance",
+                        "apiBaseUrl":  "http://localhost:10013",
+                        "frontendPort":  42013,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "quality",
+                        "name":  "Calidad",
+                        "group":  "Gobierno y soporte",
+                        "route":  "/quality",
+                        "service":  "quality",
+                        "apiBaseUrl":  "http://localhost:10014",
+                        "frontendPort":  42014,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "safety",
+                        "name":  "Seguridad y riesgos",
+                        "group":  "Gobierno y soporte",
+                        "route":  "/safety",
+                        "service":  "safety",
+                        "apiBaseUrl":  "http://localhost:10015",
+                        "frontendPort":  42015,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "legal",
+                        "name":  "Legal y cumplimiento",
+                        "group":  "Gobierno y soporte",
+                        "route":  "/legal",
+                        "service":  "legal",
+                        "apiBaseUrl":  "http://localhost:10016",
+                        "frontendPort":  42016,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "documents",
+                        "name":  "GestiÃ³n documental",
+                        "group":  "Gobierno y soporte",
+                        "route":  "/documents",
+                        "service":  "documents",
+                        "apiBaseUrl":  "http://localhost:10017",
+                        "frontendPort":  42017,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "support",
+                        "name":  "AtenciÃ³n al cliente",
+                        "group":  "Gobierno y soporte",
+                        "route":  "/support",
+                        "service":  "support",
+                        "apiBaseUrl":  "http://localhost:10018",
+                        "frontendPort":  42018,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "analytics",
+                        "name":  "Business Intelligence",
+                        "group":  "Inteligencia",
+                        "route":  "/analytics",
+                        "service":  "analytics",
+                        "apiBaseUrl":  "http://localhost:10019",
+                        "frontendPort":  42019,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "commerce",
+                        "name":  "Comercio electrÃ³nico y POS",
+                        "group":  "Canales digitales",
+                        "route":  "/commerce",
+                        "service":  "commerce",
+                        "apiBaseUrl":  "http://localhost:10020",
+                        "frontendPort":  42020,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "innovation",
+                        "name":  "InnovaciÃ³n e I+D+i",
+                        "group":  "Canales digitales",
+                        "route":  "/innovation",
+                        "service":  "innovation",
+                        "apiBaseUrl":  "http://localhost:10021",
+                        "frontendPort":  42021,
+                        "enabled":  false,
+                        "state":  "planned"
+                    },
+                    {
+                        "code":  "administration",
+                        "name":  "AdministraciÃ³n",
+                        "group":  "Gobierno y soporte",
+                        "route":  "/administration",
+                        "service":  "platform",
+                        "apiBaseUrl":  "http://localhost:10002",
+                        "frontendPort":  42002,
+                        "enabled":  false,
+                        "state":  "planned"
+                    }
+                ]
+}
