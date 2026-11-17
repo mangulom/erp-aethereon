@@ -12,6 +12,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 import csv
 import io
+import logging
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -64,6 +65,7 @@ from .schemas import (
 
 settings = get_settings()
 bearer = HTTPBearer(auto_error=False)
+logger = logging.getLogger("aethereon.finance.health")
 
 
 @asynccontextmanager
@@ -138,6 +140,9 @@ def health_ready(db: Session = Depends(get_db)) -> HealthResponse:
         db.execute(text("SELECT 1"))
         db.execute(text("SELECT count(*) FROM accounts"))
     except SQLAlchemyError as exc:
+        original = getattr(exc, "orig", None)
+        sqlstate = getattr(original, "sqlstate", None) or getattr(original, "pgcode", None)
+        logger.error("Database readiness check failed: error_type=%s sqlstate=%s", type(original).__name__ if original else type(exc).__name__, sqlstate)
         raise HTTPException(status_code=503, detail="PostgreSQL no está disponible o falta el esquema de finanzas.") from exc
     return HealthResponse(status="ready", service="finance", version=settings.service_version)
 

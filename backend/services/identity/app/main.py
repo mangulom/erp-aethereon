@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+import logging
 from uuid import UUID
 
 import jwt
@@ -18,6 +19,7 @@ from .security import create_access_token, hash_password, verify_password
 
 settings = get_settings()
 bearer = HTTPBearer(auto_error=False)
+logger = logging.getLogger("aethereon.identity.health")
 
 
 @asynccontextmanager
@@ -64,6 +66,9 @@ def health_ready(db: Session = Depends(get_db)) -> HealthResponse:
     try:
         db.execute(text("SELECT 1"))
     except SQLAlchemyError as exc:
+        original = getattr(exc, "orig", None)
+        sqlstate = getattr(original, "sqlstate", None) or getattr(original, "pgcode", None)
+        logger.error("Database readiness check failed: error_type=%s sqlstate=%s", type(original).__name__ if original else type(exc).__name__, sqlstate)
         raise HTTPException(status_code=503, detail="PostgreSQL no estÃ¡ disponible.") from exc
     return HealthResponse(status="ready", service="identity", version=settings.service_version)
 
