@@ -6,11 +6,11 @@
   "rewrites": [
     {
       "source": "/api/v1/finance/:path*",
-      "destination": "https://aethereon-finance.onrender.com/api/v1/finance/:path*"
+      "destination": "https://REPLACE_WITH_FINANCE_RENDER_HOST/api/v1/finance/:path*"
     },
     {
       "source": "/api/:path*",
-      "destination": "https://aethereon-identity.onrender.com/api/:path*"
+      "destination": "https://REPLACE_WITH_IDENTITY_RENDER_HOST/api/:path*"
     },
     {
       "source": "/(.*)",
