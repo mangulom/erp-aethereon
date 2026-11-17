@@ -6,7 +6,7 @@ services:
     region: ohio
     buildCommand: cd backend && pip install -r services/identity/requirements.txt
     startCommand: cd backend && python run.py
-    healthCheckPath: /health/ready
+    healthCheckPath: /health/live # Temporary: PostgreSQL readiness is still being debugged.
     autoDeployTrigger: checksPass
     envVars:
       - key: IDENTITY_HOST
