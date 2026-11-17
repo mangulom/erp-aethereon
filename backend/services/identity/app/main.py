@@ -69,7 +69,7 @@ def health_ready(db: Session = Depends(get_db)) -> HealthResponse:
         original = getattr(exc, "orig", None)
         sqlstate = getattr(original, "sqlstate", None) or getattr(original, "pgcode", None)
         logger.error("Database readiness check failed: error_type=%s sqlstate=%s", type(original).__name__ if original else type(exc).__name__, sqlstate)
-        raise HTTPException(status_code=503, detail="PostgreSQL no estÃ¡ disponible.") from exc
+        raise HTTPException(status_code=503, detail="PostgreSQL no disponible.") from exc
     return HealthResponse(status="ready", service="identity", version=settings.service_version)
 
 
