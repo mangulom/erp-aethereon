@@ -18,7 +18,7 @@ def main() -> None:
 
     host = os.getenv("FINANCE_HOST", "0.0.0.0" if os.getenv("RENDER") else "127.0.0.1")
     port = int(os.getenv("PORT", os.getenv("FINANCE_PORT", "18003")))
-    reload_enabled = os.getenv("FINANCE_RELOAD", "true").strip().lower() in {"1", "true", "yes"}
+    reload_enabled = False if os.getenv("RENDER") else os.getenv("FINANCE_RELOAD", "true").strip().lower() in {"1", "true", "yes"}
 
     uvicorn.run(
         "app.main:app",

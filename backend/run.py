@@ -22,7 +22,7 @@ def main() -> None:
 
     host = os.getenv("IDENTITY_HOST", "0.0.0.0" if os.getenv("RENDER") else "127.0.0.1")
     port = int(os.getenv("PORT", os.getenv("IDENTITY_PORT", "18001")))
-    reload_enabled = os.getenv("IDENTITY_RELOAD", "true").strip().lower() in {"1", "true", "yes"}
+    reload_enabled = False if os.getenv("RENDER") else os.getenv("IDENTITY_RELOAD", "true").strip().lower() in {"1", "true", "yes"}
 
     # Windows may reserve a development port for another process/AppContainer.
     # Pick the first allowed port without binding a probe socket (uvicorn owns
