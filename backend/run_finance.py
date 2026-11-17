@@ -16,8 +16,8 @@ def main() -> None:
     os.chdir(finance_dir)
     sys.path.insert(0, str(finance_dir))
 
-    host = os.getenv("FINANCE_HOST", "127.0.0.1")
-    port = int(os.getenv("FINANCE_PORT", "18003"))
+    host = os.getenv("FINANCE_HOST", "0.0.0.0" if os.getenv("RENDER") else "127.0.0.1")
+    port = int(os.getenv("PORT", os.getenv("FINANCE_PORT", "18003")))
     reload_enabled = os.getenv("FINANCE_RELOAD", "true").strip().lower() in {"1", "true", "yes"}
 
     uvicorn.run(

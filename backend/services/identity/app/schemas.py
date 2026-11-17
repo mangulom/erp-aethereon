@@ -71,6 +71,7 @@ class CompanyUpdate(BaseModel):
     legal_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     trade_name: Optional[str] = Field(default=None, max_length=200)
     tax_id: Optional[str] = Field(default=None, max_length=24)
+    country_code: Optional[str] = Field(default=None, min_length=2, max_length=2, pattern="^[A-Za-z]{2}$")
     default_currency: Optional[str] = Field(default=None, min_length=3, max_length=3)
     timezone: Optional[str] = Field(default=None, max_length=64)
     is_active: Optional[bool] = None

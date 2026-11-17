@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: aethereon-identity
+    runtime: python
+    buildCommand: cd backend && pip install -r services/identity/requirements.txt
+    startCommand: cd backend && python run.py
+    healthCheckPath: /health/ready
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: IDENTITY_HOST
+        value: 0.0.0.0
+      - key: IDENTITY_RELOAD
+        value: "false"
+      - key: IDENTITY_AUTO_PORT
+        value: "false"
+      - key: IDENTITY_UPDATE_FRONTEND_PROXY
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_EXPIRE_MINUTES
+        value: "60"
+      - key: CORS_ORIGINS
+        sync: false
+
+  - type: web
+    name: aethereon-finance
+    runtime: python
+    buildCommand: cd backend && pip install -r services/finance/requirements.txt
+    startCommand: cd backend && python run_finance.py
+    healthCheckPath: /health/ready
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: FINANCE_HOST
+        value: 0.0.0.0
+      - key: FINANCE_RELOAD
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_ISSUER
+        value: aethereon-identity
+      - key: JWT_AUDIENCE
+        value: aethereon-erp
+      - key: CORS_ORIGINS
+        sync: false

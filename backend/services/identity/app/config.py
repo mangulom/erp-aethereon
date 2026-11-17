@@ -19,7 +19,8 @@ class Settings(BaseSettings):
 
     @property
     def allowed_origins(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        raw = os.getenv("CORS_ORIGINS", self.cors_origins)
+        return [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
 
     @property
     def configured_port(self) -> int:

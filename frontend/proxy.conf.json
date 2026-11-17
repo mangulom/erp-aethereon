@@ -6,7 +6,7 @@
     "logLevel": "warn"
   },
   "/api": {
-    "target": "http://127.0.0.1:8001",
+    "target": "http://127.0.0.1:18001",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "warn"

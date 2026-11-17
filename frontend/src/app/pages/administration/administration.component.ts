@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/auth.service';
 import { LanguageService } from '../../core/language.service';
+import { DialogService } from '../../shared/dialog.service';
 
 interface Company { id: string; legal_name: string; trade_name?: string; tax_id?: string; country_code: string; default_currency: string; timezone: string; is_active: boolean; }
 interface UserRow { id: string; email: string; display_name: string; is_active: boolean; is_platform_admin: boolean; last_login_at?: string; }
@@ -54,6 +55,7 @@ export class AdministrationComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
   private readonly language = inject(LanguageService);
+  private readonly dialogs = inject(DialogService);
   get isSpanish(): boolean { return this.language.language() === 'es'; }
   get isPlatformAdmin(): boolean { return this.auth.user()?.is_platform_admin === true; }
   tab: 'companies' | 'users' | 'roles' | 'memberships' = 'companies';
@@ -78,17 +80,17 @@ export class AdministrationComponent implements OnInit {
   editCompany(c: Company): void { this.companyDraft={...c}; this.companyForm=true; }
   saveCompany(): void { this.saving=true; const d={...this.companyDraft}; const id=d.id; delete d.id; const req=id?this.http.patch<Company>(`/api/v1/finance/companies/${id}`,d):this.http.post<Company>('/api/v1/finance/companies',d); req.subscribe({next:()=>{this.companyForm=false;this.done(this.isSpanish?'Empresa guardada.':'Company saved.');this.loadCompanies();},error:e=>this.fail(e)}); }
   toggleCompany(c: Company): void { this.http.patch(`/api/v1/finance/companies/${c.id}`,{is_active:!c.is_active}).subscribe({next:()=>this.loadCompanies(),error:e=>this.fail(e)}); }
-  deleteCompany(c: Company): void { if(!confirm(this.isSpanish?`¿Eliminar ${c.legal_name}? Esta acción puede afectar datos relacionados.`:`Delete ${c.legal_name}? Related records may be affected.`))return; this.http.delete(`/api/v1/finance/companies/${c.id}`).subscribe({next:()=>{this.done(this.isSpanish?'Empresa eliminada.':'Company deleted.');this.loadCompanies();},error:e=>this.fail(e)}); }
+  async deleteCompany(c: Company): Promise<void> { if(!await this.dialogs.confirm({title:this.isSpanish?'Desactivar empresa':'Deactivate company',text:this.isSpanish?`¿Desactivar ${c.legal_name}? Se conservará el historial financiero.`:`Deactivate ${c.legal_name}? Financial history will be preserved.`,confirmText:this.isSpanish?'Desactivar':'Deactivate',danger:true,icon:'warning'}))return; this.http.delete(`/api/v1/finance/companies/${c.id}`).subscribe({next:()=>{this.done(this.isSpanish?'Empresa desactivada.':'Company deactivated.');this.loadCompanies();},error:e=>this.fail(e)}); }
   newUser(): void { this.userDraft=this.emptyUser(); this.userForm=true; }
   editUser(u: UserRow): void { this.userDraft={...u,password:''}; this.userForm=true; }
   saveUser(): void { this.saving=true; const d={...this.userDraft}; const id=d.id; delete d.id; if(id&&!d.password)delete d.password; const req=id?this.http.patch(`/api/v1/admin/users/${id}`,d):this.http.post('/api/v1/admin/users',d); req.subscribe({next:()=>{this.userForm=false;this.done(this.isSpanish?'Usuario guardado.':'User saved.');this.loadUsers();},error:e=>this.fail(e)}); }
-  deleteUser(u: UserRow): void { if(!confirm(this.isSpanish?`¿Eliminar al usuario ${u.email}?`:`Delete user ${u.email}?`))return; this.http.delete(`/api/v1/admin/users/${u.id}`).subscribe({next:()=>{this.done(this.isSpanish?'Usuario eliminado.':'User deleted.');this.loadUsers();},error:e=>this.fail(e)}); }
+  async deleteUser(u: UserRow): Promise<void> { if(!await this.dialogs.confirm({title:this.isSpanish?'Eliminar usuario':'Delete user',text:this.isSpanish?`Se eliminará ${u.email} y sus membresías. No se puede deshacer.`:`This deletes ${u.email} and memberships. This cannot be undone.`,confirmText:this.isSpanish?'Eliminar':'Delete',danger:true,icon:'warning'}))return; this.http.delete(`/api/v1/admin/users/${u.id}`).subscribe({next:()=>{this.done(this.isSpanish?'Usuario eliminado.':'User deleted.');this.loadUsers();},error:e=>this.fail(e)}); }
   newRole(): void { this.roleDraft=this.emptyRole();this.roleForm=true; }
   editRole(r: RoleRow): void { this.roleDraft={...r};this.roleForm=true; }
   saveRole(): void { if(!this.selectedCompanyId)return; const d={...this.roleDraft}; const id=d.id; delete d.id; if(!id)d.company_id=this.selectedCompanyId; const req=id?this.http.patch(`/api/v1/admin/roles/${id}`,d):this.http.post('/api/v1/admin/roles',d); req.subscribe({next:()=>{this.roleForm=false;this.done(this.isSpanish?'Rol guardado.':'Role saved.');this.loadRoles();},error:e=>this.fail(e)}); }
-  deleteRole(r: RoleRow): void { if(!confirm(this.isSpanish?`¿Eliminar el rol ${r.name}?`:`Delete role ${r.name}?`))return;this.http.delete(`/api/v1/admin/roles/${r.id}`).subscribe({next:()=>this.loadRoles(),error:e=>this.fail(e)}); }
+  async deleteRole(r: RoleRow): Promise<void> { if(!await this.dialogs.confirm({title:this.isSpanish?'Eliminar rol':'Delete role',text:this.isSpanish?`¿Eliminar el rol ${r.name}? Si está asignado, el servidor impedirá la acción.`:`Delete ${r.name}? If assigned, the server will prevent deletion.`,confirmText:this.isSpanish?'Eliminar rol':'Delete role',danger:true,icon:'warning'}))return;this.http.delete(`/api/v1/admin/roles/${r.id}`).subscribe({next:()=>this.loadRoles(),error:e=>this.fail(e)}); }
   newMembership(): void { this.membershipDraft=this.emptyMembership();this.membershipForm=true;if(!this.roles.length)this.loadRoles();if(!this.users.length&&this.isPlatformAdmin)this.loadUsers(); }
   saveMembership(): void { const payload={...this.membershipDraft,company_id:this.selectedCompanyId}; this.http.post('/api/v1/admin/memberships',payload).subscribe({next:()=>{this.membershipForm=false;this.done(this.isSpanish?'Membresía creada.':'Membership created.');this.loadMemberships();},error:e=>this.fail(e)}); }
   toggleMembership(m: Membership): void { this.http.patch(`/api/v1/admin/memberships/${m.id}`,{is_active:!m.is_active}).subscribe({next:()=>this.loadMemberships(),error:e=>this.fail(e)}); }
-  deleteMembership(m: Membership): void { if(!confirm(this.isSpanish?'¿Quitar esta membresía?':'Remove this membership?'))return;this.http.delete(`/api/v1/admin/memberships/${m.id}`).subscribe({next:()=>this.loadMemberships(),error:e=>this.fail(e)}); }
+  async deleteMembership(m: Membership): Promise<void> { if(!await this.dialogs.confirm({title:this.isSpanish?'Quitar acceso a empresa':'Remove company access',text:this.isSpanish?`Se quitará el rol ${m.role_name} a ${m.email} en esta empresa.`:`This removes ${m.role_name} from ${m.email} for this company.`,confirmText:this.isSpanish?'Quitar acceso':'Remove access',danger:true,icon:'warning'}))return;this.http.delete(`/api/v1/admin/memberships/${m.id}`).subscribe({next:()=>this.loadMemberships(),error:e=>this.fail(e)}); }
 }

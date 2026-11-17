@@ -1,0 +1,30 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build -- --configuration production",
+  "outputDirectory": "dist/frontend/browser",
+  "installCommand": "npm ci",
+  "rewrites": [
+    {
+      "source": "/api/v1/finance/:path*",
+      "destination": "https://aethereon-finance.onrender.com/api/v1/finance/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://aethereon-identity.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
+    }
+  ]
+}

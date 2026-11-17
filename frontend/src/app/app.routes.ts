@@ -7,7 +7,8 @@ export const routes: Routes = [
     path: '', canActivate: [authGuard], children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       { path: 'dashboard', loadComponent: () => import('./pages/dashboard/dashboard.component').then((module) => module.DashboardComponent) },
-      { path: 'finance', loadComponent: () => import('./pages/finance/finance.component').then((module) => module.FinanceComponent) },
+      { path: 'inteligencia-ia', pathMatch: 'full', loadComponent: () => import('./pages/finance-ai/finance-ai.component').then((module) => module.FinanceAiComponent) },
+      { path: 'finance', pathMatch: 'full', loadComponent: () => import('./pages/finance/finance.component').then((module) => module.FinanceComponent) },
       { path: 'administration', loadComponent: () => import('./pages/administration/administration.component').then((module) => module.AdministrationComponent) },
       { path: 'maintenance', pathMatch: 'full', redirectTo: 'maintenance/companies' },
       { path: 'maintenance/:section', canActivate: [platformAdminGuard], loadComponent: () => import('./pages/maintenance/maintenance.component').then((module) => module.MaintenanceComponent) },

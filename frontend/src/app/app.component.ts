@@ -1,13 +1,14 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
 import { AuthService } from './core/auth.service';
+import { CompanyService } from './core/company.service';
 import { LanguageService } from './core/language.service';
+import { LoadingComponent } from './shared/loading.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, LoadingComponent],
   templateUrl: './app.component.html',
 })
 export class AppComponent implements OnInit {
@@ -19,11 +20,12 @@ export class AppComponent implements OnInit {
   readonly user;
   readonly language;
   readonly todayLabel = signal('');
-  readonly companies = signal<Array<{id:string;legal_name:string;trade_name?:string;default_currency:string}>>([]);
-  readonly selectedCompanyId = signal(localStorage.getItem('aethereon.selected_company') || '');
-  readonly activeCompanyName = signal('');
+  get companies() { return this.companyService.companies; }
+  get selectedCompanyId() { return this.companyService.selectedCompanyId; }
+  get activeCompanyName(): string { return this.companyService.activeCompanyName; }
+  get hasValidSelectedCompany(): boolean { return this.companyService.hasActiveCompany; }
 
-  constructor(private readonly router: Router, private readonly auth: AuthService, private readonly languageService: LanguageService, private readonly http: HttpClient) {
+  constructor(private readonly router: Router, private readonly auth: AuthService, private readonly languageService: LanguageService, private readonly companyService: CompanyService) {
     this.user = this.auth.user;
     this.language = this.languageService.language;
     this.todayLabel.set(this.dateLabel());
@@ -52,33 +54,8 @@ export class AppComponent implements OnInit {
   get loggedIn(): boolean { return !!this.auth.token; }
   get loginRoute(): boolean { return this.router.url.startsWith('/login'); }
   logout(): void { this.auth.logout(); this.mobileMenuOpen.set(false); void this.router.navigate(['/login']); }
-  loadCompanies(): void {
-    if (!this.auth.token) return;
-    this.http.get<Array<{id:string;legal_name:string;trade_name?:string;default_currency:string}>>('/api/v1/auth/companies').subscribe({
-      next: (companies) => {
-        this.companies.set(companies);
-        const stored = localStorage.getItem('aethereon.selected_company') || this.selectedCompanyId();
-        const chosen = companies.find((company) => company.id === stored)?.id || companies[0]?.id || '';
-        this.selectedCompanyId.set(chosen);
-        const active = companies.find((company) => company.id === chosen);
-        this.activeCompanyName.set(active ? (active.trade_name || active.legal_name) : '');
-        if (chosen) localStorage.setItem('aethereon.selected_company', chosen);
-      },
-    });
-  }
-  selectCompany(companyId: string): void {
-    if (!companyId || companyId === this.selectedCompanyId()) return;
-    this.http.post<{access_token:string}>('/api/v1/auth/select-company', null, { params: { company_id: companyId } }).subscribe({
-      next: (response) => {
-        this.auth.updateToken(response.access_token);
-        this.selectedCompanyId.set(companyId);
-        const active = this.companies().find((company) => company.id === companyId);
-        this.activeCompanyName.set(active ? (active.trade_name || active.legal_name) : '');
-        localStorage.setItem('aethereon.selected_company', companyId);
-        window.location.reload();
-      },
-    });
-  }
+  loadCompanies(): void { this.companyService.loadCompanies(); }
+  async selectCompany(companyId: string): Promise<void> { await this.companyService.selectCompany(companyId); }
   toggleProfileMenu(): void { this.profileMenuOpen.update((open) => !open); }
   closeProfileMenu(): void { this.profileMenuOpen.set(false); }
   onProfileKeydown(event: KeyboardEvent): void { if (event.key === 'Escape') this.closeProfileMenu(); }

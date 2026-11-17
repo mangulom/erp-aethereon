@@ -15,11 +15,13 @@ def main() -> None:
     identity_dir = backend_dir / "services" / "identity"
 
     # Pydantic settings loads project-private environment relative to this root.
+    # Render provides PORT and requires a public service to bind on 0.0.0.0.
+    # In local development the project-root .env behavior is preserved.
     os.chdir(project_root)
     sys.path.insert(0, str(identity_dir))
 
-    host = os.getenv("IDENTITY_HOST", "127.0.0.1")
-    port = int(os.getenv("IDENTITY_PORT", "18001"))
+    host = os.getenv("IDENTITY_HOST", "0.0.0.0" if os.getenv("RENDER") else "127.0.0.1")
+    port = int(os.getenv("PORT", os.getenv("IDENTITY_PORT", "18001")))
     reload_enabled = os.getenv("IDENTITY_RELOAD", "true").strip().lower() in {"1", "true", "yes"}
 
     # Windows may reserve a development port for another process/AppContainer.

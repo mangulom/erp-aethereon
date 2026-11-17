@@ -17,6 +17,7 @@ class AccountBase(BaseModel):
     code: str = Field(min_length=1, max_length=32)
     name: str = Field(min_length=1, max_length=200)
     account_type: str = Field(pattern="^(asset|liability|equity|revenue|expense)$")
+    is_group: bool = False
     parent_id: Optional[UUID] = None
     account_subtype: Optional[str] = Field(default=None, pattern="^(cash|bank|receivable|payable|inventory|fixed_asset|tax|equity|income|expense)$")
     cash_flow_category: Optional[str] = Field(default=None, pattern="^(operating|investing|financing)$")
@@ -33,6 +34,7 @@ class AccountCreate(AccountBase):
 class AccountUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     account_type: Optional[str] = Field(default=None, pattern="^(asset|liability|equity|revenue|expense)$")
+    is_group: Optional[bool] = None
     parent_id: Optional[UUID] = None
     account_subtype: Optional[str] = Field(default=None, pattern="^(cash|bank|receivable|payable|inventory|fixed_asset|tax|equity|income|expense)$")
     cash_flow_category: Optional[str] = Field(default=None, pattern="^(operating|investing|financing)$")
@@ -46,6 +48,38 @@ class AccountResponse(AccountBase):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     company_id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class AuxiliaryCreate(BaseModel):
+    company_id: UUID
+    code: str = Field(min_length=1,max_length=40)
+    name: str = Field(min_length=1,max_length=200)
+    auxiliary_type: str = Field(pattern="^(customer|supplier|employee|user|other)$")
+    tax_id: Optional[str] = Field(default=None,max_length=24)
+    user_id: Optional[UUID] = None
+    email: Optional[str] = Field(default=None,max_length=320)
+    phone: Optional[str] = Field(default=None,max_length=40)
+    address: Optional[str] = None
+    is_active: bool = True
+
+
+class AuxiliaryUpdate(BaseModel):
+    code: Optional[str] = Field(default=None,min_length=1,max_length=40)
+    name: Optional[str] = Field(default=None,min_length=1,max_length=200)
+    auxiliary_type: Optional[str] = Field(default=None,pattern="^(customer|supplier|employee|user|other)$")
+    tax_id: Optional[str] = Field(default=None,max_length=24)
+    user_id: Optional[UUID] = None
+    email: Optional[str] = Field(default=None,max_length=320)
+    phone: Optional[str] = Field(default=None,max_length=40)
+    address: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class AuxiliaryResponse(AuxiliaryCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
     created_at: datetime
     updated_at: datetime
 
@@ -72,10 +106,10 @@ class FiscalYearResponse(FiscalYearBase):
 
 class FiscalPeriodBase(BaseModel):
     code: str = Field(min_length=1, max_length=16)
-    name: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=3, max_length=80)
     start_date: date
     end_date: date
-    sort_order: int = Field(default=1)
+    sort_order: int = Field(default=1, ge=1)
 
 
 class FiscalPeriodCreate(FiscalPeriodBase):
@@ -94,6 +128,7 @@ class FiscalPeriodResponse(FiscalPeriodBase):
 
 class JournalEntryLineBase(BaseModel):
     account_id: UUID
+    auxiliary_id: Optional[UUID] = None
     line_number: int = Field(ge=1)
     description: Optional[str] = None
     debit_amount: Decimal = Field(default=Decimal("0"), ge=0)

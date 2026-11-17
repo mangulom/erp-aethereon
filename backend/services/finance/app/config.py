@@ -1,5 +1,6 @@
 from functools import lru_cache
 import os
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,11 +18,12 @@ class Settings(BaseSettings):
     jwt_audience: str = "aethereon-erp"
     cors_origins: str = "http://localhost:4200,http://127.0.0.1:4200"
     log_level: str = "info"
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=Path(__file__).resolve().parents[1] / ".env", extra="ignore", case_sensitive=False)
 
     @property
     def allowed_origins(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        raw = os.getenv("CORS_ORIGINS", self.cors_origins)
+        return [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
 
     @property
     def configured_port(self) -> int:
