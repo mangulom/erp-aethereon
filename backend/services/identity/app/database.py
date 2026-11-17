@@ -7,13 +7,16 @@ from .config import get_settings
 
 
 def _sqlalchemy_database_url(url: str) -> str:
-    # SQLAlchemy 2 defaults postgresql:// to psycopg 3. This service installs
-    # psycopg2-binary, so normalize provider URLs (Supabase commonly gives
-    # postgresql://) to the explicitly installed driver.
+    # Supabase commonly provides postgresql:// URLs. Select the installed
+    # Psycopg 3 driver explicitly rather than relying on SQLAlchemy defaults.
+    if url.startswith("postgresql+psycopg2://"):
+        return url.replace("postgresql+psycopg2://", "postgresql+psycopg://", 1)
+    if url.startswith("postgresql+psycopg://"):
+        return url
     if url.startswith("postgresql://"):
-        return url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return url.replace("postgresql://", "postgresql+psycopg://", 1)
     if url.startswith("postgres://"):
-        return url.replace("postgres://", "postgresql+psycopg2://", 1)
+        return url.replace("postgres://", "postgresql+psycopg://", 1)
     return url
 
 
