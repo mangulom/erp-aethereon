@@ -9,8 +9,6 @@ services:
     healthCheckPath: /health/ready
     autoDeployTrigger: checksPass
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.11
       - key: IDENTITY_HOST
         value: 0.0.0.0
       - key: IDENTITY_RELOAD
@@ -40,8 +38,6 @@ services:
     healthCheckPath: /health/ready
     autoDeployTrigger: checksPass
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.11
       - key: FINANCE_HOST
         value: 0.0.0.0
       - key: FINANCE_RELOAD
