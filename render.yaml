@@ -2,6 +2,8 @@ services:
   - type: web
     name: aethereon-identity
     runtime: python
+    plan: free
+    region: ohio
     buildCommand: cd backend && pip install -r services/identity/requirements.txt
     startCommand: cd backend && python run.py
     healthCheckPath: /health/ready
@@ -31,6 +33,8 @@ services:
   - type: web
     name: aethereon-finance
     runtime: python
+    plan: free
+    region: ohio
     buildCommand: cd backend && pip install -r services/finance/requirements.txt
     startCommand: cd backend && python run_finance.py
     healthCheckPath: /health/ready

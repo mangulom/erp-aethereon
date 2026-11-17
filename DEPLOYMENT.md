@@ -1,4 +1,4 @@
-# Despliegue: Supabase + Render + Vercel
+# Despliegue gratuito de prueba: Supabase + Render + Vercel
 
 Arquitectura preparada:
 
@@ -6,7 +6,7 @@ Arquitectura preparada:
 - **Render:** dos servicios FastAPI: Identity (`backend/run.py`) y Finance (`backend/run_finance.py`).
 - **Supabase:** PostgreSQL. El proyecto conserva su autenticación propia (JWT de Identity); Supabase Auth está deshabilitado deliberadamente.
 
-> No usar datos reales de producción para la primera prueba. Crea un proyecto Supabase de *staging* y valida ahí migraciones, conexión y login antes de producción.
+> **Ruta gratuita para probar:** Vercel Hobby + Supabase Free + Render Free. No es adecuada para una operación ERP de producción: Render duerme servicios, Supabase Free se pausa tras una semana de inactividad, los límites pueden suspender servicios y las copias de seguridad son limitadas/no incluidas. No usar datos financieros reales hasta completar la revisión de seguridad y migraciones.
 
 ## 0. Preparar GitHub
 
@@ -21,7 +21,7 @@ No publiques ningún secreto en el repositorio.
 ## 1. Supabase: PostgreSQL y migraciones
 
 1. Crea un proyecto Supabase en la región cercana a Render. Guarda de forma privada la contraseña de base de datos.
-2. Usa **Session pooler** o conexión directa PostgreSQL para Render. Construye `DATABASE_URL` con esquema SQLAlchemy, por ejemplo:
+2. Usa **Session pooler** (más práctico desde Render) o conexión directa PostgreSQL. Construye `DATABASE_URL` con esquema SQLAlchemy, por ejemplo:
 
    `postgresql+psycopg2://USER:PASSWORD@HOST:PORT/postgres`
 
@@ -60,13 +60,28 @@ No publiques ningún secreto en el repositorio.
 
 1. Importa el repo de GitHub en Render como **Blueprint** y selecciona la raíz del repositorio (`render.yaml`). Revisa el plan y los costos antes de aplicar.
 2. Se crearán dos Web Services Python. Render inyecta `PORT`; los entrypoints ya usan `PORT` y en Render escuchan en `0.0.0.0`. Los health checks son `/health/ready`.
-3. En **ambos** servicios configura `DATABASE_URL` con el mismo proyecto Supabase y `JWT_SECRET_KEY` con el mismo secreto aleatorio de al menos 32 bytes. Genera uno fuera del repo (por ejemplo `python -c "import secrets; print(secrets.token_hex(48))"`) y copia el mismo valor a ambos servicios.
+3. El Blueprint pide configurar `DATABASE_URL` y `JWT_SECRET_KEY` en ambos servicios. Genera una sola clave fuera del repo (por ejemplo `python -c "import secrets; print(secrets.token_hex(48))"`) y copia el mismo valor en ambos.
 4. Mantén:
    - Identity: `JWT_ALGORITHM=HS256`, `JWT_EXPIRE_MINUTES=60`, `CORS_ORIGINS=https://<dominio-vercel>`.
    - Finance: `JWT_ALGORITHM=HS256`, `JWT_ISSUER=aethereon-identity`, `JWT_AUDIENCE=aethereon-erp`, misma `CORS_ORIGINS`.
    - `IDENTITY_RELOAD=false`, `FINANCE_RELOAD=false`, `IDENTITY_UPDATE_FRONTEND_PROXY=false`.
 5. Despliega primero Identity y Finance. Copia sus hostnames HTTPS reales de Render.
 6. Comprueba ambos health checks `/health/ready` y revisa logs. La base se administra con migraciones Supabase, no con `docker-compose.yml` de desarrollo.
+
+### Si Render te pide tarjeta
+
+El Blueprint fija `plan: free` para Identity y Finance; un Web Service Free normalmente no exige método de pago. Si el Blueprint sigue mostrando el modal de pago, no lo aceptes: cierra el modal y crea cada servicio manualmente desde **New → Web Service**, eligiendo explícitamente **Free**. Si la pantalla vuelve a exigir tarjeta, detente y revisa que la selección diga `Free` y no un plan pago; no ingreses tarjeta para continuar esta ruta gratuita.
+
+- Repo: `mangulom/erp-aethereon`, branch `main`.
+- Root Directory: dejar vacío (raíz del repo).
+- Identity build: `cd backend && pip install -r services/identity/requirements.txt`.
+- Identity start: `cd backend && python run.py`.
+- Finance build: `cd backend && pip install -r services/finance/requirements.txt`.
+- Finance start: `cd backend && python run_finance.py`.
+- Health path: `/health/ready`.
+- Variables: usa las de la lista anterior (`DATABASE_URL` y `JWT_SECRET_KEY` iguales en ambos). No agregues `PORT`: Render lo proporciona.
+
+En el plan Free, las Web Services se duermen tras 15 minutos sin tráfico y el primer request posterior puede tardar aproximadamente un minuto. Hay un total de 750 horas gratuitas mensuales por workspace; si se agotan, los servicios gratuitos se suspenden hasta el siguiente mes. Render Free puede suspender servicios que generen tráfico externo inusualmente alto. Para un demo académico/de prueba, avísalo a quienes lo usen.
 
 ## 3. Vercel: Angular
 
@@ -79,6 +94,8 @@ No publiques ningún secreto en el repositorio.
 4. En `frontend/vercel.json`, reemplaza los dos textos `REPLACE_WITH_...` por los hostnames reales de Render, sin `https://` duplicado. El orden es intencional: `/api/v1/finance/*` va a Finance antes del rewrite general `/api/*` hacia Identity. Se agrega fallback SPA a `index.html`.
 5. Revisa la lista de dominios de Vercel y copia el dominio definitivo (por ejemplo `https://<proyecto>.vercel.app`). En los dos servicios Render, `CORS_ORIGINS` debe ser ese origen exacto, sin barra final. Si usas dominio propio, agrega ambos orígenes separados por coma.
 6. Haz Deploy. Cuando quede listo, usa recarga forzada del navegador y valida rutas profundas (`/finance`, `/finance/ai`) y `/api`.
+
+El plan Hobby de Vercel es gratuito para proyectos personales y cubre hosting estático de este Angular. La cuenta debe cumplir los términos de Hobby. Si el dashboard marca el repositorio como organización/team que exige Pro, no añadas tarjeta sin revisar: cambia a una cuenta personal/espacio permitido o usa Render Static Site gratis para el frontend.
 
 ## 4. Validación de extremo a extremo
 
