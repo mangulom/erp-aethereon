@@ -4,5 +4,7 @@ SQLAlchemy>=2.0.38,<3.0
 psycopg[binary]>=3.2,<4.0
 pydantic-settings>=2.8,<3.0
 pydantic>=2.0,<3.0
+PyJWT<3.0,>=2.10
+argon2-cffi<26.0,>=23.1
 email-validator>=2.2,<3.0
 openpyxl>=3.1,<4.0
