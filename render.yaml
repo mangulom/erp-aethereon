@@ -35,7 +35,7 @@ services:
     region: ohio
     buildCommand: cd backend && pip install -r services/finance/requirements.txt
     startCommand: cd backend && python run_finance.py
-    healthCheckPath: /health/ready
+    healthCheckPath: /health/live # Changed to live to allow start even during initial DB sync
     autoDeployTrigger: checksPass
     envVars:
       - key: FINANCE_HOST

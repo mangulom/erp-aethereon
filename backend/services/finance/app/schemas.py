@@ -339,3 +339,327 @@ class TaxRateUpdate(BaseModel):
 class ExchangeRateUpdate(BaseModel):
     rate: Optional[Decimal] = Field(default=None, gt=0)
     source: Optional[str] = None
+
+
+# --- Cost Centers & Projects ---
+class CostCenterBase(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=200)
+    parent_id: Optional[UUID] = None
+    is_active: bool = True
+
+class CostCenterCreate(CostCenterBase):
+    company_id: UUID
+
+class CostCenterUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    parent_id: Optional[UUID] = None
+    is_active: Optional[bool] = None
+
+class CostCenterResponse(CostCenterBase):
+    id: UUID
+    company_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectBase(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=200)
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    budget_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    status: str = Field(default="active", pattern="^(active|completed|suspended|cancelled)$")
+    manager_name: Optional[str] = None
+
+class ProjectCreate(ProjectBase):
+    company_id: UUID
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    budget_amount: Optional[Decimal] = Field(default=None, ge=0)
+    status: Optional[str] = Field(default=None, pattern="^(active|completed|suspended|cancelled)$")
+    manager_name: Optional[str] = None
+
+class ProjectResponse(ProjectBase):
+    id: UUID
+    company_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Fixed Assets ---
+class AssetCategoryBase(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=200)
+    depreciation_method: str = Field(default="straight_line", pattern="^(straight_line|declining_balance|units_of_production)$")
+    useful_life_years: int = Field(default=5, ge=1)
+    salvage_rate: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+    asset_account_id: Optional[UUID] = None
+    accumulated_depreciation_account_id: Optional[UUID] = None
+    depreciation_expense_account_id: Optional[UUID] = None
+    is_active: bool = True
+
+class AssetCategoryCreate(AssetCategoryBase):
+    company_id: UUID
+
+class AssetCategoryUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    depreciation_method: Optional[str] = Field(default=None, pattern="^(straight_line|declining_balance|units_of_production)$")
+    useful_life_years: Optional[int] = Field(default=None, ge=1)
+    salvage_rate: Optional[Decimal] = Field(default=None, ge=0, le=100)
+    asset_account_id: Optional[UUID] = None
+    accumulated_depreciation_account_id: Optional[UUID] = None
+    depreciation_expense_account_id: Optional[UUID] = None
+    is_active: Optional[bool] = None
+
+class AssetCategoryResponse(AssetCategoryBase):
+    id: UUID
+    company_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FixedAssetBase(BaseModel):
+    category_id: UUID
+    code: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=200)
+    description: Optional[str] = None
+    serial_number: Optional[str] = None
+    location: Optional[str] = None
+    acquisition_date: date
+    start_depreciation_date: date
+    acquisition_cost: Decimal = Field(gt=0)
+    salvage_value: Decimal = Field(default=Decimal("0"), ge=0)
+    useful_life_months: int = Field(default=60, ge=1)
+    cost_center_id: Optional[UUID] = None
+
+class FixedAssetCreate(FixedAssetBase):
+    company_id: UUID
+
+class FixedAssetUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    description: Optional[str] = None
+    serial_number: Optional[str] = None
+    location: Optional[str] = None
+    cost_center_id: Optional[UUID] = None
+    status: Optional[str] = Field(default=None, pattern="^(active|fully_depreciated|disposed|under_maintenance)$")
+    disposal_date: Optional[date] = None
+    disposal_reason: Optional[str] = None
+
+class FixedAssetResponse(FixedAssetBase):
+    id: UUID
+    company_id: UUID
+    current_book_value: Decimal
+    accumulated_depreciation: Decimal
+    status: str
+    disposal_date: Optional[date] = None
+    disposal_reason: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AssetDepreciationLineResponse(BaseModel):
+    id: UUID
+    asset_id: UUID
+    fiscal_period_id: Optional[UUID] = None
+    period_date: date
+    depreciation_amount: Decimal
+    accumulated_before: Decimal
+    accumulated_after: Decimal
+    book_value_after: Decimal
+    journal_entry_id: Optional[UUID] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Payment Terms & Withholding ---
+class PaymentTermBase(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=200)
+    days_net: int = Field(default=0, ge=0)
+    days_discount: int = Field(default=0, ge=0)
+    discount_rate: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+    is_active: bool = True
+
+class PaymentTermCreate(PaymentTermBase):
+    company_id: UUID
+
+class PaymentTermUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    days_net: Optional[int] = Field(default=None, ge=0)
+    days_discount: Optional[int] = Field(default=None, ge=0)
+    discount_rate: Optional[Decimal] = Field(default=None, ge=0, le=100)
+    is_active: Optional[bool] = None
+
+class PaymentTermResponse(PaymentTermBase):
+    id: UUID
+    company_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WithholdingTypeBase(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=200)
+    rate: Decimal = Field(gt=0, le=100)
+    applies_to: str = Field(pattern="^(purchase|sale|both)$")
+    withholding_account_id: Optional[UUID] = None
+    is_active: bool = True
+
+class WithholdingTypeCreate(WithholdingTypeBase):
+    company_id: UUID
+
+class WithholdingTypeUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    rate: Optional[Decimal] = Field(default=None, gt=0, le=100)
+    applies_to: Optional[str] = Field(default=None, pattern="^(purchase|sale|both)$")
+    withholding_account_id: Optional[UUID] = None
+    is_active: Optional[bool] = None
+
+class WithholdingTypeResponse(WithholdingTypeBase):
+    id: UUID
+    company_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Invoice Series ---
+class InvoiceSeriesBase(BaseModel):
+    document_type_code: str = Field(min_length=1, max_length=10)
+    series: str = Field(min_length=1, max_length=10)
+    description: Optional[str] = None
+    is_electronic: bool = True
+    is_default: bool = False
+    is_active: bool = True
+
+class InvoiceSeriesCreate(InvoiceSeriesBase):
+    company_id: UUID
+
+class InvoiceSeriesUpdate(BaseModel):
+    description: Optional[str] = None
+    is_default: Optional[bool] = None
+    is_active: Optional[bool] = None
+    current_correlative: Optional[int] = None
+    next_correlative: Optional[int] = None
+
+class InvoiceSeriesResponse(InvoiceSeriesBase):
+    id: UUID
+    company_id: UUID
+    current_correlative: int
+    next_correlative: int
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Registros Contables SUNAT (PLE) ---
+class PurchaseRegisterEntryCreate(BaseModel):
+    company_id: UUID
+    fiscal_period_id: Optional[UUID] = None
+    document_id: Optional[UUID] = None
+    journal_entry_id: Optional[UUID] = None
+    cuo: str = Field(min_length=1, max_length=40)
+    issue_date: date
+    due_date: Optional[date] = None
+    voucher_type: str = Field(default="01", max_length=10)
+    series: str = Field(max_length=20)
+    voucher_number: str = Field(max_length=30)
+    supplier_id_type: str = Field(default="6", max_length=10)
+    supplier_tax_id: str = Field(max_length=24)
+    supplier_name: str = Field(max_length=200)
+    taxable_base: Decimal = Field(default=Decimal("0"))
+    igv_amount: Decimal = Field(default=Decimal("0"))
+    exempt_amount: Decimal = Field(default=Decimal("0"))
+    unaffected_amount: Decimal = Field(default=Decimal("0"))
+    isc_amount: Decimal = Field(default=Decimal("0"))
+    icbper_amount: Decimal = Field(default=Decimal("0"))
+    other_taxes: Decimal = Field(default=Decimal("0"))
+    total_amount: Decimal = Field(default=Decimal("0"))
+    currency: str = Field(default="PEN", max_length=10)
+    exchange_rate: Decimal = Field(default=Decimal("1.0"))
+    detraction_date: Optional[date] = None
+    detraction_constancy: Optional[str] = None
+    retention_amount: Decimal = Field(default=Decimal("0"))
+    operation_status: str = Field(default="1", max_length=10)
+
+class PurchaseRegisterEntryResponse(PurchaseRegisterEntryCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SalesRegisterEntryCreate(BaseModel):
+    company_id: UUID
+    fiscal_period_id: Optional[UUID] = None
+    document_id: Optional[UUID] = None
+    journal_entry_id: Optional[UUID] = None
+    cuo: str = Field(min_length=1, max_length=40)
+    issue_date: date
+    due_date: Optional[date] = None
+    voucher_type: str = Field(default="01", max_length=10)
+    series: str = Field(max_length=20)
+    voucher_number: str = Field(max_length=30)
+    customer_id_type: str = Field(default="6", max_length=10)
+    customer_tax_id: str = Field(max_length=24)
+    customer_name: str = Field(max_length=200)
+    export_amount: Decimal = Field(default=Decimal("0"))
+    taxable_base: Decimal = Field(default=Decimal("0"))
+    discount_base: Decimal = Field(default=Decimal("0"))
+    igv_amount: Decimal = Field(default=Decimal("0"))
+    discount_igv: Decimal = Field(default=Decimal("0"))
+    exempt_amount: Decimal = Field(default=Decimal("0"))
+    unaffected_amount: Decimal = Field(default=Decimal("0"))
+    isc_amount: Decimal = Field(default=Decimal("0"))
+    icbper_amount: Decimal = Field(default=Decimal("0"))
+    other_taxes: Decimal = Field(default=Decimal("0"))
+    total_amount: Decimal = Field(default=Decimal("0"))
+    currency: str = Field(default="PEN", max_length=10)
+    exchange_rate: Decimal = Field(default=Decimal("1.0"))
+    operation_status: str = Field(default="1", max_length=10)
+
+class SalesRegisterEntryResponse(SalesRegisterEntryCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ClosingEntryCreate(BaseModel):
+    company_id: UUID
+    fiscal_year_id: UUID
+    step_number: int
+    step_name: str
+    journal_entry_id: Optional[UUID] = None
+    notes: Optional[str] = None
+
+class ClosingEntryResponse(ClosingEntryCreate):
+    id: UUID
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OpeningBalanceCreate(BaseModel):
+    company_id: UUID
+    fiscal_year_id: UUID
+    account_id: UUID
+    auxiliary_id: Optional[UUID] = None
+    debit: Decimal = Field(default=Decimal("0"), ge=0)
+    credit: Decimal = Field(default=Decimal("0"), ge=0)
+    journal_entry_id: Optional[UUID] = None
+
+class OpeningBalanceResponse(OpeningBalanceCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
