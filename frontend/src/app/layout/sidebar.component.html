@@ -1,0 +1,85 @@
+<aside class="sidebar" [class.mobile-open]="mobileMenuOpen">
+  <a routerLink="/dashboard" class="sidebar-brand" (click)="closeMobileMenu.emit()">
+    <span class="brand-mark">
+      <svg viewBox="0 0 48 48" fill="none"><path d="M24 3.5 42 14v20L24 44.5 6 34V14L24 3.5Z" stroke="currentColor" stroke-width="2"/><path d="m15 29 8-13 5.5 8 4.5-6 4 7M15 33h22" stroke="currentColor" stroke-width="2"/></svg>
+    </span>
+    <span class="wordmark">SOPHIA<span>ERP</span></span>
+  </a>
+
+  <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('command')" [attr.aria-expanded]="isGroupExpanded('command')">
+    <span>{{ t('CENTRO DE CONTROL','COMMAND CENTER') }}</span>
+    <span class="group-chevron" [class.expanded]="isGroupExpanded('command')">▾</span>
+  </button>
+  <nav class="sidebar-nav">
+    @if (isGroupExpanded('command')) {
+      <a class="nav-link" routerLink="/dashboard" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">◈</span><span class="nav-label">{{ t('Resumen ejecutivo','Executive overview') }}</span></a>
+      <a class="nav-link" routerLink="/modules" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">☰</span><span class="nav-label">{{ t('Flujos y módulos','Workflows & modules') }}</span><span class="nav-soon">22</span></a>
+      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">◉</span><span class="nav-label">{{ t('Agentes IA','AI agents') }}</span><span class="nav-soon">{{ t('PRONTO','NEXT') }}</span></a>
+      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">◔</span><span class="nav-label">{{ t('Analítica','Analytics') }}</span></a>
+      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">✓</span><span class="nav-label">{{ t('Aprobaciones','Approvals') }}</span></a>
+    }
+    <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('finance')" [attr.aria-expanded]="isGroupExpanded('finance')">
+      <span>{{ t('FINANZAS Y CONTROL','FINANCE & CONTROL') }}</span>
+      <span class="group-chevron" [class.expanded]="isGroupExpanded('finance')">▾</span>
+    </button>
+    @if (isGroupExpanded('finance')) {
+      <a class="nav-link" routerLink="/finance" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}" (click)="closeMobileMenu.emit()"><span class="nav-symbol">💰</span><span class="nav-label">{{ t('Finanzas y tesorería','Finance & treasury') }}</span></a>
+      <a class="nav-link" routerLink="/accounting" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">📒</span><span class="nav-label">{{ t('Contabilidad','Accounting') }}</span></a>
+      <a class="nav-link" routerLink="/budgets" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">📊</span><span class="nav-label">{{ t('Presupuestos','Budgets') }}</span></a>
+      <a class="nav-link nav-ai" routerLink="/inteligencia-ia" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">✨</span><span class="nav-label">{{ t('Inteligencia Artificial Aplicada','Applied Artificial Intelligence') }}</span></a>
+    }
+    <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('operations')" [attr.aria-expanded]="isGroupExpanded('operations')">
+      <span>{{ t('OPERACIONES','OPERATIONS') }}</span>
+      <span class="group-chevron" [class.expanded]="isGroupExpanded('operations')">▾</span>
+    </button>
+    @if (isGroupExpanded('operations')) {
+      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">🛒</span><span class="nav-label">{{ t('Ventas y CRM','Sales & CRM') }}</span></a>
+      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">📦</span><span class="nav-label">{{ t('Abastecimiento','Procurement') }}</span></a>
+      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">📦</span><span class="nav-label">{{ t('Inventario','Inventory') }}</span></a>
+      <a class="nav-link" routerLink="/logistics" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">🚚</span><span class="nav-label">{{ t('Logística','Logistics') }}</span></a>
+    }
+    <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('people')" [attr.aria-expanded]="isGroupExpanded('people')">
+      <span>{{ t('PERSONAS Y PRODUCCIÓN','PEOPLE & PRODUCTION') }}</span>
+      <span class="group-chevron" [class.expanded]="isGroupExpanded('people')">▾</span>
+    </button>
+    @if (isGroupExpanded('people')) {
+      <a class="nav-link" routerLink="/human-resources" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">👥</span><span class="nav-label">{{ t('Recursos humanos','Human resources') }}</span></a>
+      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">⚙</span><span class="nav-label">{{ t('Manufactura y activos','Manufacturing & EAM') }}</span></a>
+    }
+    <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('governance')" [attr.aria-expanded]="isGroupExpanded('governance')">
+      <span>{{ t('GOBERNANZA','GOVERNANCE') }}</span>
+      <span class="group-chevron" [class.expanded]="isGroupExpanded('governance')">▾</span>
+    </button>
+    @if (isGroupExpanded('governance')) {
+      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">🛡</span><span class="nav-label">{{ t('Calidad y cumplimiento','Quality & compliance') }}</span></a>
+    }
+    @if (user?.is_platform_admin) {
+      <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('maintenance')" [attr.aria-expanded]="isGroupExpanded('maintenance')">
+        <span>{{ t('MANTENIMIENTO','MAINTENANCE') }}</span>
+        <span class="group-chevron" [class.expanded]="isGroupExpanded('maintenance')">▾</span>
+      </button>
+      @if (isGroupExpanded('maintenance')) {
+        <a class="nav-link" routerLink="/maintenance/companies" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">🏢</span><span class="nav-label">{{ t('Empresas','Companies') }}</span></a>
+        <a class="nav-link" routerLink="/maintenance/users" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">👥</span><span class="nav-label">{{ t('Usuarios','Users') }}</span></a>
+        <a class="nav-link" routerLink="/maintenance/document-types" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">📄</span><span class="nav-label">{{ t('Tipos de documento','Document types') }}</span></a>
+        <a class="nav-link" routerLink="/maintenance/roles" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">🛡</span><span class="nav-label">{{ t('Roles','Roles') }}</span></a>
+      }
+    }
+    <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('platform')" [attr.aria-expanded]="isGroupExpanded('platform')">
+      <span>{{ t('PLATAFORMA','PLATFORM') }}</span>
+      <span class="group-chevron" [class.expanded]="isGroupExpanded('platform')">▾</span>
+    </button>
+    @if (isGroupExpanded('platform')) {
+      <a class="nav-link" routerLink="/settings" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">⚙</span><span class="nav-label">{{ t('Configuración de plataforma','Platform settings') }}</span></a>
+    }
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="user-row">
+      <button class="user-avatar profile-sidebar-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-label]="t('Abrir perfil de usuario','Open user profile')">
+        @if(user?.avatar_data_url){<img [src]="user.avatar_data_url" alt="">}@else {<span>{{ user?.display_name?.slice(0,1) || 'U' }}</span>}
+      </button>
+      <span class="user-copy"><b>{{ user?.display_name || 'Usuario' }}</b><small>{{ user?.is_platform_admin ? t('Administrador de plataforma','Platform Admin') : t('Usuario empresarial','Enterprise User') }}</small></span>
+      <button class="logout-button" type="button" (click)="logout()">⎋</button>
+    </div>
+  </div>
+</aside>

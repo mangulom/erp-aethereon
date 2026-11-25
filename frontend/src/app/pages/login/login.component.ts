@@ -10,14 +10,14 @@ import { AuthService } from '../../core/auth.service';
     <main class="login-page">
       <section class="login-brand-panel">
         <div class="login-grid"></div>
-        <div class="brand-top"><div class="brand-mark"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 3.5 42 14v20L24 44.5 6 34V14L24 3.5Z" stroke="currentColor" stroke-width="2"/><path d="M15 28.5 23 16l5.5 8 4.5-6 4 6.5M15 33h22" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="34" cy="12" r="3" fill="#4bd3bb"/></svg></div><span class="wordmark">AETHEREON<span>ERP</span></span></div>
+        <div class="brand-top"><div class="brand-mark"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 3.5 42 14v20L24 44.5 6 34V14L24 3.5Z" stroke="currentColor" stroke-width="2"/><path d="M15 28.5 23 16l5.5 8 4.5-6 4 6.5M15 33h22" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="34" cy="12" r="3" fill="#4bd3bb"/></svg></div><span class="wordmark">SOPHIA<span>ERP</span></span></div>
         <div class="brand-copy"><span class="eyebrow"><i></i> INTELIGENCIA EMPRESARIAL, EN UN SOLO LUGAR</span><h1 class="login-hero-title">Todo tu negocio.<br/><em>Una visión</em><br/>más inteligente.</h1><p>Conecta procesos, equipos y decisiones en una plataforma empresarial diseñada para crecer contigo.</p>
           <div class="brand-points"><div><span class="point-icon">⌘</span><span><b>Un ecosistema conectado</b><small>Procesos alineados, de punta a punta.</small></span></div><div><span class="point-icon">✳</span><span><b>Inteligencia en cada módulo</b><small>Datos claros para mejores decisiones.</small></span></div></div>
         </div>
-        <div class="brand-footer"><span>PERÚ · PLATAFORMA MULTIEMPRESA</span><span>© 2026 Aethereon</span></div>
+        <div class="brand-footer"><span>PERÚ · PLATAFORMA MULTIEMPRESA</span><span>© 2026 Sophia ERP</span></div>
       </section>
       <section class="login-content">
-        <div class="login-card-wrap"><div class="mobile-brand"><div class="brand-mark"><svg viewBox="0 0 48 48" fill="none"><path d="M24 3.5 42 14v20L24 44.5 6 34V14L24 3.5Z" stroke="currentColor" stroke-width="2"/><path d="m15 29 8-13 5.5 8 4.5-6 4 7M15 33h22" stroke="currentColor" stroke-width="2"/></svg></div><span class="wordmark">AETHEREON<span>ERP</span></span></div>
+        <div class="login-card-wrap"><div class="mobile-brand"><div class="brand-mark"><svg viewBox="0 0 48 48" fill="none"><path d="M24 3.5 42 14v20L24 44.5 6 34V14L24 3.5Z" stroke="currentColor" stroke-width="2"/><path d="m15 29 8-13 5.5 8 4.5-6 4 7M15 33h22" stroke="currentColor" stroke-width="2"/></svg></div><span class="wordmark">SOPHIA<span>ERP</span></span></div>
            <div class="welcome-label"><span class="status-pulse"></span> ESPACIO DE TRABAJO EMPRESARIAL</div>
            <h2>Bienvenido de vuelta</h2><p class="login-subtitle">Ingresa tus credenciales para continuar.</p>
            <div class="demo-access" role="note" aria-label="Credenciales demo temporales"><div class="demo-access-heading"><span class="demo-indicator"></span><span>ACCESO DEMO TEMPORAL · DESARROLLO</span><span class="demo-until">SOLO LOCAL</span></div><div class="demo-credentials"><div><span>USUARIO</span><strong>admin&#64;aethereon.pe</strong></div><div><span>CONTRASEÑA</span><strong class="demo-password">admin123!</strong></div></div><p>Retirar esta cuenta antes de publicar en producción.</p></div><form (ngSubmit)="submit()" #form="ngForm" class="login-form">

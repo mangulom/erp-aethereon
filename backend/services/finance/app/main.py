@@ -91,6 +91,10 @@ from .schemas import (
     ClosingEntryResponse,
     OpeningBalanceCreate,
     OpeningBalanceResponse,
+    BudgetCDPCreate, BudgetCDPResponse,
+    BudgetCommitmentCreate, BudgetCommitmentResponse,
+    PaymentOrderCreate, PaymentOrderResponse,
+    FinanceBankCreate, FinanceBankResponse,
 )
 
 settings = get_settings()
@@ -378,6 +382,9 @@ def create_periods(fiscal_year_id: UUID, periods: list[FiscalPeriodCreate], db: 
     if not fy:
         raise HTTPException(status_code=404, detail="Ejercicio fiscal no encontrado.")
     require_company(claims, fy["company_id"])
+    acct_count = db.execute(text("SELECT COUNT(*) FROM accounts WHERE company_id = :cid AND is_active"), {"cid": fy["company_id"]}).scalar_one()
+    if acct_count == 0:
+        raise HTTPException(status_code=409, detail="No se puede crear asientos: debe crear/importar el Plan de Cuentas primero.")
     if fy["is_closed"]:
         raise HTTPException(status_code=409, detail="El ejercicio fiscal está cerrado.")
     if not periods:
@@ -1312,7 +1319,7 @@ def delete_draft_entry(entry_id: UUID, db: Session = Depends(get_db), claims: di
 def list_budgets(company_id: UUID, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
     require_company(claims, company_id)
     rows = db.execute(
-        text("SELECT id, company_id, fiscal_year_id, name, description, status, currency, approved_by, approved_at, created_by, created_at, updated_at FROM budgets WHERE company_id = :company_id ORDER BY created_at DESC"),
+        text("SELECT id, company_id, fiscal_year_id, name, description, status, currency, origin_area, approved_by, approved_at, created_by, created_at, updated_at FROM budgets WHERE company_id = :company_id ORDER BY created_at DESC"),
         {"company_id": company_id},
     ).mappings().all()
     return [BudgetResponse(**dict(row)) for row in rows]
@@ -1324,9 +1331,9 @@ def create_budget(payload: BudgetCreate, db: Session = Depends(get_db), claims: 
     try:
         row = db.execute(
             text("""
-                INSERT INTO budgets (company_id, fiscal_year_id, name, description, currency, created_by)
-                VALUES (:company_id, :fiscal_year_id, :name, :description, :currency, :created_by)
-                RETURNING id, company_id, fiscal_year_id, name, description, status, currency, approved_by, approved_at, created_by, created_at, updated_at
+                INSERT INTO budgets (company_id, fiscal_year_id, name, description, currency, origin_area, created_by)
+                VALUES (:company_id, :fiscal_year_id, :name, :description, :currency, :origin_area, :created_by)
+                RETURNING id, company_id, fiscal_year_id, name, description, status, currency, origin_area, approved_by, approved_at, created_by, created_at, updated_at
             """),
             {**payload.model_dump(), "created_by": claims.get("sub")},
         ).mappings().first()
@@ -1340,7 +1347,7 @@ def create_budget(payload: BudgetCreate, db: Session = Depends(get_db), claims: 
 
 @app.get("/api/v1/finance/budgets/{budget_id}", response_model=BudgetResponse, tags=["budgets"])
 def get_budget(budget_id: UUID, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
-    row = db.execute(text("SELECT id, company_id, fiscal_year_id, name, description, status, currency, approved_by, approved_at, created_by, created_at, updated_at FROM budgets WHERE id = :id"), {"id": budget_id}).mappings().first()
+    row = db.execute(text("SELECT id, company_id, fiscal_year_id, name, description, status, currency, origin_area, approved_by, approved_at, created_by, created_at, updated_at FROM budgets WHERE id = :id"), {"id": budget_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado.")
     require_company(claims, row["company_id"])
@@ -1366,7 +1373,7 @@ def update_budget(budget_id: UUID, payload: BudgetUpdate, db: Session = Depends(
         assignments = ", ".join(f"{key} = :{key}" for key in changes)
     try:
         updated = db.execute(
-            text(f"UPDATE budgets SET {assignments}, updated_at = now() WHERE id = :budget_id RETURNING id, company_id, fiscal_year_id, name, description, status, currency, approved_by, approved_at, created_by, created_at, updated_at"),
+            text(f"UPDATE budgets SET {assignments}, updated_at = now() WHERE id = :budget_id RETURNING id, company_id, fiscal_year_id, name, description, status, currency, origin_area, approved_by, approved_at, created_by, created_at, updated_at"),
             changes,
         ).mappings().first()
         _audit(db, claims, "finance.budget.updated", row["company_id"], "budget", str(budget_id))
@@ -1752,6 +1759,7 @@ class PaymentInput(BaseModel):
 
 class BankAccountInput(BaseModel):
     account_id: UUID
+    bank_id: UUID | None = None
     bank_name: str
     account_name: str
     account_number_masked: str | None = None
@@ -2142,7 +2150,7 @@ def create_document_payment(document_id: UUID, payload: PaymentInput, db: Sessio
 @app.get("/api/v1/finance/bank-accounts", tags=["treasury"])
 def list_bank_accounts(company_id: UUID, db: Session=Depends(get_db), claims: dict=Depends(require_claims)):
     require_company(claims,company_id)
-    rows=db.execute(text("""SELECT b.id,b.company_id,b.account_id,b.bank_name,b.account_name,b.account_number_masked,b.currency,b.is_active,b.created_at,b.updated_at,a.code AS account_code,a.name AS ledger_account_name FROM finance_bank_accounts b JOIN accounts a ON a.id=b.account_id WHERE b.company_id=:c ORDER BY b.account_name"""),{"c":company_id}).mappings().all()
+    rows=db.execute(text("""SELECT b.id,b.company_id,b.account_id,b.bank_id,b.bank_name,b.account_name,b.account_number_masked,b.currency,b.is_active,b.created_at,b.updated_at,a.code AS account_code,a.name AS ledger_account_name FROM finance_bank_accounts b JOIN accounts a ON a.id=b.account_id WHERE b.company_id=:c ORDER BY b.account_name"""),{"c":company_id}).mappings().all()
     return [dict(row) for row in rows]
 
 
@@ -2153,7 +2161,7 @@ def create_bank_account(company_id: UUID, payload: BankAccountInput, db: Session
     if not account or account["account_subtype"] not in ("cash","bank") or not account["is_active"] or not account["allow_posting"]:
         raise HTTPException(status_code=422,detail="La cuenta contable debe ser activa, imputable y de subtipo caja o banco.")
     try:
-        row=db.execute(text("INSERT INTO finance_bank_accounts(company_id,account_id,bank_name,account_name,account_number_masked,currency,is_active) VALUES(:company,:account,:bank,:name,:number,:currency,:active) RETURNING id,company_id,account_id,bank_name,account_name,account_number_masked,currency,is_active,created_at,updated_at"),{"company":company_id,**payload.model_dump()}).mappings().first()
+        row=db.execute(text("INSERT INTO finance_bank_accounts(company_id,account_id,bank_id,bank_name,account_name,account_number_masked,currency,is_active) VALUES(:company,:account,:bank_id,:bank,:name,:number,:currency,:active) RETURNING id,company_id,account_id,bank_id,bank_name,account_name,account_number_masked,currency,is_active,created_at,updated_at"),{"company":company_id,**payload.model_dump()}).mappings().first()
         _audit(db,claims,"finance.bank_account.created",company_id,"bank_account",str(row["id"]));db.commit()
     except SQLAlchemyError as exc:
         db.rollback();raise HTTPException(status_code=409,detail="No se pudo crear la cuenta bancaria.") from exc
@@ -2168,11 +2176,24 @@ def update_bank_account(bank_account_id: UUID, payload: BankAccountInput, db: Se
     account=db.execute(text("SELECT account_subtype FROM accounts WHERE id=:id AND company_id=:c"),{"id":payload.account_id,"c":current["company_id"]}).mappings().first()
     if not account or account["account_subtype"] not in ("cash","bank"): raise HTTPException(status_code=422,detail="Selecciona una cuenta de caja o banco de esta empresa.")
     try:
-        row=db.execute(text("UPDATE finance_bank_accounts SET account_id=:account,bank_name=:bank,account_name=:name,account_number_masked=:number,currency=:currency,is_active=:active,updated_at=now() WHERE id=:id RETURNING id,company_id,account_id,bank_name,account_name,account_number_masked,currency,is_active,created_at,updated_at"),{"id":bank_account_id,"account":payload.account_id,"bank":payload.bank_name,"name":payload.account_name,"number":payload.account_number_masked,"currency":payload.currency,"active":payload.is_active}).mappings().first()
+        row=db.execute(text("UPDATE finance_bank_accounts SET account_id=:account,bank_id=:bank_id,bank_name=:bank,account_name=:name,account_number_masked=:number,currency=:currency,is_active=:active,updated_at=now() WHERE id=:id RETURNING id,company_id,account_id,bank_id,bank_name,account_name,account_number_masked,currency,is_active,created_at,updated_at"),{"id":bank_account_id,"account":payload.account_id,"bank_id":payload.bank_id,"bank":payload.bank_name,"name":payload.account_name,"number":payload.account_number_masked,"currency":payload.currency,"active":payload.is_active}).mappings().first()
         _audit(db,claims,"finance.bank_account.updated",current["company_id"],"bank_account",str(bank_account_id));db.commit()
     except SQLAlchemyError as exc:
         db.rollback();raise HTTPException(status_code=409,detail="No se pudo actualizar la cuenta bancaria.") from exc
     return dict(row)
+
+
+@app.delete("/api/v1/finance/bank-accounts/{bank_account_id}", status_code=204, tags=["treasury"])
+def delete_bank_account(bank_account_id: UUID, db: Session=Depends(get_db), claims: dict=Depends(require_claims)):
+    current=db.execute(text("SELECT company_id FROM finance_bank_accounts WHERE id=:id"),{"id":bank_account_id}).mappings().first()
+    if not current: raise HTTPException(status_code=404,detail="Cuenta bancaria no encontrada.")
+    require_company(claims,current["company_id"])
+    try:
+        db.execute(text("DELETE FROM finance_bank_accounts WHERE id=:id"),{"id":bank_account_id})
+        _audit(db,claims,"finance.bank_account.deleted",current["company_id"],"bank_account",str(bank_account_id));db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback();raise HTTPException(status_code=409,detail="No se pudo eliminar la cuenta bancaria (tiene movimientos).") from exc
+    return None
 
 
 @app.get("/api/v1/finance/bank-accounts/{bank_account_id}/statement-lines", tags=["treasury"])
@@ -2290,6 +2311,46 @@ def post_finance_document(document_id: UUID, db: Session = Depends(get_db), clai
             db.execute(text("INSERT INTO journal_entry_lines(journal_entry_id,account_id,auxiliary_id,line_number,description,debit_amount,credit_amount) VALUES(:entry,:account,:auxiliary,:line,:description,:debit,:credit)"),{"entry":entry_id,"account":item["account_id"],"auxiliary":item.get("auxiliary_id"),"line":index,"description":item["description"],"debit":item["debit_amount"],"credit":item["credit_amount"]})
         db.execute(text("UPDATE journal_entries SET status='posted',posted_by=:actor,posted_at=now(),updated_at=now() WHERE id=:id"),{"actor":claims.get("sub"),"id":entry_id})
         db.execute(text("UPDATE finance_documents SET status='posted',journal_entry_id=:entry,posted_by=:actor,posted_at=now(),updated_at=now() WHERE id=:id"),{"entry":entry_id,"actor":claims.get("sub"),"id":document_id})
+        # Populate accounting books: diario, mayor, compras, ventas, caja
+        doc_type = doc["document_type"]
+        entry_date = doc["issue_date"]
+        for item in journal_lines:
+            acct_subtype = by_id.get(item["account_id"], (None, None))[1]
+            base = {
+                "company_id": doc["company_id"],
+                "entry_id": entry_id,
+                "entry_date": entry_date,
+                "auxiliary_id": item.get("auxiliary_id"),
+                "account_id": item["account_id"],
+                "debit": item["debit_amount"],
+                "credit": item["credit_amount"],
+                "description": item["description"],
+            }
+            db.execute(text("""
+                INSERT INTO accounting_daily_journal (company_id, journal_entry_id, journal_date, auxiliary_id, account_id, debit_amount, credit_amount, description)
+                VALUES (:company_id, :entry_id, :entry_date, :auxiliary_id, :account_id, :debit, :credit, :description)
+            """), base)
+            db.execute(text("""
+                INSERT INTO accounting_general_ledger (company_id, journal_entry_id, account_id, journal_date, auxiliary_id, debit_amount, credit_amount, description)
+                VALUES (:company_id, :entry_id, :account_id, :entry_date, :auxiliary_id, :debit, :credit, :description)
+            """), base)
+            if doc_type in ("purchase_bill", "purchase_credit_note"):
+                db.execute(text("""
+                    INSERT INTO accounting_purchase_journal (company_id, journal_entry_id, journal_date, auxiliary_id, account_id, debit_amount, credit_amount, description)
+                    VALUES (:company_id, :entry_id, :entry_date, :auxiliary_id, :account_id, :debit, :credit, :description)
+                """), base)
+            elif doc_type in ("sales_invoice", "sales_credit_note"):
+                db.execute(text("""
+                    INSERT INTO accounting_sales_journal (company_id, journal_entry_id, journal_date, auxiliary_id, account_id, debit_amount, credit_amount, description)
+                    VALUES (:company_id, :entry_id, :entry_date, :auxiliary_id, :account_id, :debit, :credit, :description)
+                """), base)
+            if acct_subtype in ("cash", "bank"):
+                amount = item["debit_amount"] if item["debit_amount"] > 0 else item["credit_amount"]
+                direction = "debit" if item["debit_amount"] > 0 else "credit"
+                db.execute(text("""
+                    INSERT INTO accounting_cash_book (company_id, journal_entry_id, journal_date, auxiliary_id, account_id, amount, direction, description)
+                    VALUES (:company_id, :entry_id, :entry_date, :auxiliary_id, :account_id, :amount, :direction, :description)
+                """), {"company_id": doc["company_id"], "entry_id": entry_id, "entry_date": entry_date, "auxiliary_id": item.get("auxiliary_id"), "account_id": item["account_id"], "amount": amount, "direction": direction, "description": item["description"]})
         _audit(db,claims,"finance.document.posted",doc["company_id"],"finance_document",str(document_id),{"journal_entry_id":str(entry_id)}); db.commit()
     except SQLAlchemyError as exc:
         db.rollback(); raise HTTPException(status_code=409,detail="No se pudo contabilizar el comprobante.") from exc
@@ -4081,7 +4142,7 @@ def get_journal_book(company_id: UUID = Query(...), start_date: date = Query(...
             SELECT 
                 je.id AS entry_id, je.entry_number, je.entry_date, je.description AS entry_description, je.status,
                 jl.id AS line_id, jl.line_number, jl.account_id, a.code AS account_code, a.name AS account_name,
-                jl.debit, jl.credit, jl.description AS line_description,
+                jl.debit_amount AS debit, jl.credit_amount AS credit, jl.description AS line_description,
                 cc.code AS cost_center_code, cc.name AS cost_center_name,
                 p.code AS project_code,
                 aux.tax_id AS auxiliary_tax_id, aux.name AS auxiliary_name
@@ -4118,7 +4179,7 @@ def get_cash_book(company_id: UUID = Query(...), start_date: date = Query(...), 
         text("""
             SELECT 
                 je.entry_date, je.entry_number, a.code AS account_code, a.name AS account_name,
-                jl.debit, jl.credit, jl.description,
+                jl.debit_amount AS debit, jl.credit_amount AS credit, jl.description,
                 fba.bank_name, fba.account_number,
                 aux.tax_id AS auxiliary_tax_id, aux.name AS auxiliary_name
             FROM journal_entry_lines jl
@@ -4145,6 +4206,91 @@ def get_cash_book(company_id: UUID = Query(...), start_date: date = Query(...), 
         "total_outflows": str(outflows),
         "net_flow": str(net_flow),
         "movements": [dict(r) for r in rows]
+    }
+
+@app.get("/api/v1/finance/registers/purchase-journal", tags=["accounting-books"])
+def get_purchase_journal(company_id: UUID = Query(...), start_date: date = Query(...), end_date: date = Query(...), db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    """Registro de Compras (Libro 2.1 SUNAT) con detalle de proveedores, impuestos y saldo."""
+    require_company(claims, company_id)
+    rows = db.execute(text("""
+        SELECT acj.journal_date, je.entry_number, a.code AS account_code, a.name AS account_name,
+               acj.debit_amount, acj.credit_amount, acj.description,
+               fa.code AS auxiliary_code, fa.name AS auxiliary_name, fa.tax_id AS auxiliary_tax_id
+        FROM accounting_purchase_journal acj
+        JOIN journal_entries je ON je.id = acj.journal_entry_id
+        JOIN accounts a ON a.id = acj.account_id
+        LEFT JOIN finance_auxiliaries fa ON fa.id = acj.auxiliary_id
+        WHERE acj.company_id = :cid AND acj.journal_date BETWEEN :sdate AND :edate
+        ORDER BY acj.journal_date ASC, je.entry_number ASC
+    """), {"cid": company_id, "sdate": start_date, "edate": end_date}).mappings().all()
+    total_debit = sum(Decimal(str(r["debit_amount"])) for r in rows)
+    total_credit = sum(Decimal(str(r["credit_amount"])) for r in rows)
+    net = total_debit - total_credit
+    return {
+        "company_id": company_id,
+        "start_date": start_date,
+        "end_date": end_date,
+        "total_debit": str(total_debit),
+        "total_credit": str(total_credit),
+        "net": str(net),
+        "movements": [dict(r) for r in rows]
+    }
+
+@app.get("/api/v1/finance/registers/sales-journal", tags=["accounting-books"])
+def get_sales_journal(company_id: UUID = Query(...), start_date: date = Query(...), end_date: date = Query(...), db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    """Registro de Ventas (Libro 3.1 SUNAT) con detalle de clientes, impuestos y saldo."""
+    require_company(claims, company_id)
+    rows = db.execute(text("""
+        SELECT asj.journal_date, je.entry_number, a.code AS account_code, a.name AS account_name,
+               asj.debit_amount, asj.credit_amount, asj.description,
+               fa.code AS auxiliary_code, fa.name AS auxiliary_name, fa.tax_id AS auxiliary_tax_id
+        FROM accounting_sales_journal asj
+        JOIN journal_entries je ON je.id = asj.journal_entry_id
+        JOIN accounts a ON a.id = asj.account_id
+        LEFT JOIN finance_auxiliaries fa ON fa.id = asj.auxiliary_id
+        WHERE asj.company_id = :cid AND asj.journal_date BETWEEN :sdate AND :edate
+        ORDER BY asj.journal_date ASC, je.entry_number ASC
+    """), {"cid": company_id, "sdate": start_date, "edate": end_date}).mappings().all()
+    total_debit = sum(Decimal(str(r["debit_amount"])) for r in rows)
+    total_credit = sum(Decimal(str(r["credit_amount"])) for r in rows)
+    net = total_credit - total_debit  # Sales are credit-oriented
+    return {
+        "company_id": company_id,
+        "start_date": start_date,
+        "end_date": end_date,
+        "total_debit": str(total_debit),
+        "total_credit": str(total_credit),
+        "net": str(net),
+        "movements": [dict(r) for r in rows]
+    }
+
+@app.get("/api/v1/finance/registers/bank-reconciliation", tags=["accounting-books"])
+def get_bank_reconciliation(company_id: UUID = Query(...), bank_account_id: UUID | None = Query(None), start_date: date = Query(...), end_date: date = Query(...), db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    """Conciliación Bancaria con movimientos del libro de bancos vs extractos bancarios."""
+    require_company(claims, company_id)
+    conditions = ["acj.company_id = :cid", "acj.journal_date BETWEEN :sdate AND :edate"]
+    params = {"cid": company_id, "sdate": start_date, "edate": end_date}
+    if bank_account_id:
+        conditions.append("fba.id = :bacc")
+        params["bacc"] = bank_account_id
+    rows = db.execute(text(f"""
+        SELECT acj.journal_date, je.entry_number, fba.bank_name, fba.account_number,
+               acj.amount AS ledger_amount, acj.direction AS ledger_direction, acj.description AS ledger_desc,
+               fbsl.transaction_date AS statement_date, fbsl.amount AS statement_amount, fbsl.description AS statement_desc,
+               CASE WHEN fbsl.id IS NOT NULL THEN TRUE ELSE FALSE END AS has_statement
+        FROM accounting_cash_book acj
+        JOIN journal_entries je ON je.id = acj.journal_entry_id
+        LEFT JOIN finance_bank_accounts fba ON fba.account_id = acj.account_id
+        LEFT JOIN finance_bank_statement_lines fbsl ON fbsl.journal_entry_id = acj.journal_entry_id
+        WHERE {' AND '.join(conditions)}
+        ORDER BY acj.journal_date ASC, je.entry_number ASC
+    """), params).mappings().all()
+    return {
+        "company_id": company_id,
+        "bank_account_id": bank_account_id,
+        "start_date": start_date,
+        "end_date": end_date,
+        "reconciliation_items": [dict(r) for r in rows]
     }
 
 @app.post("/api/v1/finance/fiscal-years/{fiscal_year_id}/close", tags=["accounting-books"])
@@ -4186,3 +4332,344 @@ def execute_fiscal_year_closing(fiscal_year_id: UUID, db: Session = Depends(get_
     db.commit()
     
     return {"message": "Cierre de ejercicio fiscal ejecutado con éxito.", "closing_entry_id": str(close_log["id"]), "fiscal_year": fy["name"]}
+# ---------------------------------------------------------------------------
+# Budget control: CDP, Commitments, Payment Orders
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/finance/budget-cdp", response_model=list[BudgetCDPResponse], tags=["budgets"])
+def list_budget_cdp(company_id: UUID = Query(...), db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, company_id)
+    rows = db.execute(text("SELECT id, company_id, number, cdp_date, line_text, requester_area, amount, status, created_at, updated_at FROM budget_cdp WHERE company_id=:c ORDER BY cdp_date DESC, created_at DESC"), {"c": company_id}).mappings().all()
+    return [BudgetCDPResponse(**dict(r)) for r in rows]
+
+@app.post("/api/v1/finance/budget-cdp", response_model=BudgetCDPResponse, status_code=201, tags=["budgets"])
+def create_budget_cdp(payload: BudgetCDPCreate, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, payload.company_id)
+    bud_count = db.execute(text("SELECT COUNT(*) FROM budgets WHERE company_id = :cid"), {"cid": payload.company_id}).scalar_one()
+    if bud_count == 0:
+        raise HTTPException(status_code=409, detail="No se puede crear CDP: debe crear primero un Presupuesto/Apropiación inicial.")
+    try:
+        row = db.execute(text("""
+            INSERT INTO budget_cdp (company_id, number, cdp_date, line_text, requester_area, amount, status)
+            VALUES (:company_id, :number, :cdp_date, :line_text, :requester_area, :amount, :status)
+            RETURNING id, company_id, number, cdp_date, line_text, requester_area, amount, status, created_at, updated_at
+        """), payload.model_dump()).mappings().first()
+        _audit(db, claims, "finance.budget_cdp.created", payload.company_id, "budget_cdp", str(row["id"]))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Error al crear CDP.") from exc
+    return BudgetCDPResponse(**dict(row))
+
+
+@app.patch("/api/v1/finance/budget-cdp/{cdp_id}", response_model=BudgetCDPResponse, tags=["budgets"])
+def patch_budget_cdp(cdp_id: UUID, payload: dict, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    row = db.execute(text("SELECT * FROM budget_cdp WHERE id=:id"), {"id": cdp_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="CDP no encontrado.")
+    require_company(claims, row["company_id"])
+    allowed = {"number", "cdp_date", "line_text", "requester_area", "amount", "status"}
+    updates = {k: v for k, v in payload.items() if k in allowed}
+    if not updates:
+        raise HTTPException(status_code=400, detail="Sin cambios válidos.")
+    set_parts = ", ".join([f"{k}=:{k}" for k in updates.keys()])
+    updates["id"] = cdp_id
+    try:
+        row2 = db.execute(text(f"UPDATE budget_cdp SET {set_parts}, updated_at=now() WHERE id=:id RETURNING id, company_id, number, cdp_date, line_text, requester_area, amount, status, created_at, updated_at"), updates).mappings().first()
+        _audit(db, claims, "finance.budget_cdp.updated", row["company_id"], "budget_cdp", str(cdp_id))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="No se pudo actualizar el CDP.") from exc
+    return BudgetCDPResponse(**dict(row2))
+
+
+@app.delete("/api/v1/finance/budget-cdp/{cdp_id}", status_code=204, tags=["budgets"])
+def delete_budget_cdp(cdp_id: UUID, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    row = db.execute(text("SELECT company_id FROM budget_cdp WHERE id=:id"), {"id": cdp_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="CDP no encontrado.")
+    require_company(claims, row["company_id"])
+    has = db.execute(text("SELECT 1 FROM budget_commitments WHERE cdp_id=:id LIMIT 1"), {"id": cdp_id}).first()
+    if has:
+        raise HTTPException(status_code=409, detail="No se puede eliminar: tiene compromisos asociados.")
+    try:
+        db.execute(text("DELETE FROM budget_cdp WHERE id=:id"), {"id": cdp_id})
+        _audit(db, claims, "finance.budget_cdp.deleted", row["company_id"], "budget_cdp", str(cdp_id))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="No se pudo eliminar el CDP.") from exc
+    return None
+
+@app.get("/api/v1/finance/budget-commitments", response_model=list[BudgetCommitmentResponse], tags=["budgets"])
+def list_budget_commitments(company_id: UUID = Query(...), db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, company_id)
+    rows = db.execute(text("SELECT id, company_id, number, commitment_date, reference, amount, status, cdp_id, supplier_id, created_at, updated_at FROM budget_commitments WHERE company_id=:c ORDER BY commitment_date DESC"), {"c": company_id}).mappings().all()
+    return [BudgetCommitmentResponse(**dict(r)) for r in rows]
+
+@app.post("/api/v1/finance/budget-commitments", response_model=BudgetCommitmentResponse, status_code=201, tags=["budgets"])
+def create_budget_commitment(payload: BudgetCommitmentCreate, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, payload.company_id)
+    bud_count = db.execute(text("SELECT COUNT(*) FROM budgets WHERE company_id = :cid"), {"cid": payload.company_id}).scalar_one()
+    if bud_count == 0:
+        raise HTTPException(status_code=409, detail="No se puede crear compromisos: debe crear primero un Presupuesto/Apropiación inicial.")
+    if payload.cdp_id:
+        cdp = db.execute(text("SELECT id, amount FROM budget_cdp WHERE id = :id AND company_id = :cid"), {"id": payload.cdp_id, "cid": payload.company_id}).mappings().first()
+        if not cdp:
+            raise HTTPException(status_code=404, detail="CDP no encontrado para esta empresa.")
+        committed = db.execute(text("SELECT COALESCE(SUM(amount),0) FROM budget_commitments WHERE cdp_id = :id AND status != 'anulado'"), {"id": payload.cdp_id}).scalar_one()
+        if Decimal(str(committed)) + Decimal(str(payload.amount)) > Decimal(str(cdp["amount"])):
+            raise HTTPException(status_code=409, detail=f"Saldo insuficiente en CDP: comprometido {committed}, disponible {Decimal(str(cdp['amount'])) - Decimal(str(committed))}.")
+    try:
+        row = db.execute(text("""
+            INSERT INTO budget_commitments (company_id, number, commitment_date, reference, amount, status, cdp_id, supplier_id)
+            VALUES (:company_id, :number, :commitment_date, :reference, :amount, :status, :cdp_id, :supplier_id)
+            RETURNING id, company_id, number, commitment_date, reference, amount, status, cdp_id, supplier_id, created_at, updated_at
+        """), payload.model_dump()).mappings().first()
+        _audit(db, claims, "finance.budget_commitment.created", payload.company_id, "budget_commitment", str(row["id"]))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Error al crear compromiso.") from exc
+    return BudgetCommitmentResponse(**dict(row))
+
+
+@app.patch("/api/v1/finance/budget-commitments/{commitment_id}", response_model=BudgetCommitmentResponse, tags=["budgets"])
+def patch_budget_commitment(commitment_id: UUID, payload: dict, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    row = db.execute(text("SELECT * FROM budget_commitments WHERE id=:id"), {"id": commitment_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Compromiso no encontrado.")
+    require_company(claims, row["company_id"])
+    allowed = {"status", "reference", "amount", "supplier_id", "commitment_date"}
+    updates = {k: v for k, v in payload.items() if k in allowed}
+    if not updates:
+        raise HTTPException(status_code=400, detail="Sin cambios válidos.")
+    old_status = row["status"]
+    new_status = updates.get("status", old_status)
+    if "amount" in updates or "status" in updates:
+        cdp_id = row["cdp_id"]
+        new_amount = Decimal(str(updates.get("amount", row["amount"])))
+        if cdp_id and new_status != "anulado":
+            cdp = db.execute(text("SELECT amount FROM budget_cdp WHERE id=:id"), {"id": cdp_id}).mappings().first()
+            if cdp:
+                committed = db.execute(text("SELECT COALESCE(SUM(amount),0) FROM budget_commitments WHERE cdp_id=:id AND status!='anulado' AND id!=:cid"), {"id": cdp_id, "cid": commitment_id}).scalar_one()
+                if Decimal(str(committed)) + new_amount > Decimal(str(cdp["amount"])):
+                    raise HTTPException(status_code=409, detail="Saldo insuficiente en CDP para este monto.")
+    set_parts = ", ".join([f"{k}=:{k}" for k in updates.keys()])
+    updates["id"] = commitment_id
+    try:
+        row2 = db.execute(text(f"UPDATE budget_commitments SET {set_parts}, updated_at=now() WHERE id=:id RETURNING id, company_id, number, commitment_date, reference, amount, status, cdp_id, supplier_id, created_at, updated_at"), updates).mappings().first()
+        _audit(db, claims, "finance.budget_commitment.updated", row["company_id"], "budget_commitment", str(commitment_id))
+        # Auto journal entry on accrual: devengado
+        if old_status != "devengado" and new_status == "devengado":
+            # find open fiscal year/period for commitment date
+            cdate = row2["commitment_date"]
+            fy = db.execute(text("SELECT id, is_closed FROM fiscal_years WHERE company_id=:cid AND start_date<=:d AND end_date>=:d LIMIT 1"), {"cid": row["company_id"], "d": cdate}).mappings().first()
+            if fy and not fy["is_closed"]:
+                period = db.execute(text("SELECT id, is_closed FROM fiscal_periods WHERE fiscal_year_id=:fy AND start_date<=:d AND end_date>=:d LIMIT 1"), {"fy": fy["id"], "d": cdate}).mappings().first()
+                if period and not period["is_closed"]:
+                    # find expense account from config (env) or default '63'
+                    expense_code = os.getenv("BUDGET_DEVENGO_EXPENSE_ACCOUNT_CODE", "63")
+                    payable_code = os.getenv("BUDGET_DEVENGO_PAYABLE_ACCOUNT_CODE", "4212")
+                    exp = db.execute(text("SELECT id FROM accounts WHERE company_id=:cid AND code LIKE :code AND is_active AND allow_posting AND NOT is_group ORDER BY code LIMIT 1"), {"cid": row["company_id"], "code": f"{expense_code}%"}).mappings().first()
+                    pay = db.execute(text("SELECT id FROM accounts WHERE company_id=:cid AND code LIKE :code AND is_active AND allow_posting AND NOT is_group ORDER BY code LIMIT 1"), {"cid": row["company_id"], "code": f"{payable_code}%"}).mappings().first()
+                    if exp and pay:
+                        entry_no = f"DEV-{cdate:%Y%m%d}-{str(uuid4())[:6].upper()}"
+                        amt = Decimal(str(row2["amount"]))
+                        entry = db.execute(text("""
+                            INSERT INTO journal_entries (company_id, fiscal_year_id, fiscal_period_id, entry_number, entry_date, reference, description, currency, exchange_rate, total_debit, total_credit, created_by, status)
+                            VALUES (:cid, :fy, :period, :eno, :edate, :ref, :desc, 'PEN', 1, :amt, :amt, :actor, 'draft')
+                            RETURNING id
+                        """), {"cid": row["company_id"], "fy": fy["id"], "period": period["id"], "eno": entry_no, "edate": cdate, "ref": row2["number"], "desc": f"Devengo compromiso {row2['number']}", "amt": amt, "actor": claims.get("sub")}).scalar_one()
+                        db.execute(text("INSERT INTO journal_entry_lines (journal_entry_id, account_id, auxiliary_id, line_number, description, debit_amount, credit_amount) VALUES (:jid,:acc,:aux,1,:d,:debit,0)"), {"jid": entry, "acc": exp["id"], "aux": row2["supplier_id"], "d": "Devengo gasto/servicio", "debit": amt})
+                        db.execute(text("INSERT INTO journal_entry_lines (journal_entry_id, account_id, auxiliary_id, line_number, description, debit_amount, credit_amount) VALUES (:jid,:acc,:aux,2,:d,0,:credit)"), {"jid": entry, "acc": pay["id"], "aux": row2["supplier_id"], "d": "Cuenta por pagar", "credit": amt})
+                        _audit(db, claims, "finance.journal_entry.auto_created_from_commitment", row["company_id"], "journal_entry", str(entry))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="No se pudo actualizar el compromiso.") from exc
+    return BudgetCommitmentResponse(**dict(row2))
+
+
+@app.delete("/api/v1/finance/budget-commitments/{commitment_id}", status_code=204, tags=["budgets"])
+def delete_budget_commitment(commitment_id: UUID, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    row = db.execute(text("SELECT company_id FROM budget_commitments WHERE id=:id"), {"id": commitment_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Compromiso no encontrado.")
+    require_company(claims, row["company_id"])
+    has_po = db.execute(text("SELECT 1 FROM payment_orders WHERE commitment_id=:id LIMIT 1"), {"id": commitment_id}).first()
+    if has_po:
+        raise HTTPException(status_code=409, detail="No se puede eliminar: tiene órdenes de pago asociadas.")
+    try:
+        db.execute(text("DELETE FROM budget_commitments WHERE id=:id"), {"id": commitment_id})
+        _audit(db, claims, "finance.budget_commitment.deleted", row["company_id"], "budget_commitment", str(commitment_id))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="No se pudo eliminar el compromiso.") from exc
+    return None
+
+@app.get("/api/v1/finance/payment-orders", response_model=list[PaymentOrderResponse], tags=["budgets"])
+def list_payment_orders(company_id: UUID = Query(...), db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, company_id)
+    rows = db.execute(text("SELECT id, company_id, number, order_date, payee, amount, status, commitment_id, supplier_id, bank_account_id, created_at, updated_at FROM payment_orders WHERE company_id=:c ORDER BY order_date DESC"), {"c": company_id}).mappings().all()
+    return [PaymentOrderResponse(**dict(r)) for r in rows]
+
+@app.post("/api/v1/finance/payment-orders", response_model=PaymentOrderResponse, status_code=201, tags=["budgets"])
+def create_payment_order(payload: PaymentOrderCreate, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, payload.company_id)
+    try:
+        row = db.execute(text("""
+            INSERT INTO payment_orders (company_id, number, order_date, payee, amount, status, commitment_id, supplier_id, bank_account_id)
+            VALUES (:company_id, :number, :order_date, :payee, :amount, :status, :commitment_id, :supplier_id, :bank_account_id)
+            RETURNING id, company_id, number, order_date, payee, amount, status, commitment_id, supplier_id, bank_account_id, created_at, updated_at
+        """), payload.model_dump()).mappings().first()
+        _audit(db, claims, "finance.payment_order.created", payload.company_id, "payment_order", str(row["id"]))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Error al crear orden de pago.") from exc
+    return PaymentOrderResponse(**dict(row))
+
+
+@app.patch("/api/v1/finance/payment-orders/{order_id}", response_model=PaymentOrderResponse, tags=["budgets"])
+def patch_payment_order(order_id: UUID, payload: dict, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    row = db.execute(text("SELECT * FROM payment_orders WHERE id=:id"), {"id": order_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Orden de pago no encontrada.")
+    require_company(claims, row["company_id"])
+    allowed = {"number", "order_date", "payee", "amount", "status", "commitment_id", "supplier_id", "bank_account_id"}
+    updates = {k: v for k, v in payload.items() if k in allowed}
+    if not updates:
+        raise HTTPException(status_code=400, detail="Sin cambios válidos.")
+    old_status = row["status"]
+    new_status = updates.get("status", old_status)
+    if old_status not in ("pagado", "paid") and new_status in ("pagado", "paid"):
+        final_bank = updates.get("bank_account_id")
+        if final_bank is None:
+            final_bank = row.get("bank_account_id")
+        final_commit = updates.get("commitment_id")
+        if final_commit is None:
+            final_commit = row.get("commitment_id")
+        if not final_bank or not final_commit:
+            raise HTTPException(status_code=409, detail="Para marcar como pagada la orden debe tener cuenta bancaria y compromiso vinculados.")
+    set_parts = ", ".join([f"{k}=:{k}" for k in updates.keys()])
+    updates["id"] = order_id
+    try:
+        row2 = db.execute(text(f"UPDATE payment_orders SET {set_parts}, updated_at=now() WHERE id=:id RETURNING id, company_id, number, order_date, payee, amount, status, commitment_id, supplier_id, bank_account_id, created_at, updated_at"), updates).mappings().first()
+        _audit(db, claims, "finance.payment_order.updated", row["company_id"], "payment_order", str(order_id))
+        # Auto journal entry on payment: status -> pagado/paid
+        if old_status not in ("pagado", "paid") and new_status in ("pagado", "paid"):
+            bank_account_id = row2["bank_account_id"]
+            commitment_id = row2["commitment_id"]
+            if bank_account_id and commitment_id:
+                cdate = row2["order_date"]
+                fy = db.execute(text("SELECT id, is_closed FROM fiscal_years WHERE company_id=:cid AND start_date<=:d AND end_date>=:d LIMIT 1"), {"cid": row["company_id"], "d": cdate}).mappings().first()
+                if fy and not fy["is_closed"]:
+                    period = db.execute(text("SELECT id, is_closed FROM fiscal_periods WHERE fiscal_year_id=:fy AND start_date<=:d AND end_date>=:d LIMIT 1"), {"fy": fy["id"], "d": cdate}).mappings().first()
+                    if period and not period["is_closed"]:
+                        # bank account -> cash/bank account
+                        ba = db.execute(text("SELECT account_id FROM finance_bank_accounts WHERE id=:id AND company_id=:cid"), {"id": bank_account_id, "cid": row["company_id"]}).mappings().first()
+                        # payable 4212
+                        payable_code = os.getenv("BUDGET_DEVENGO_PAYABLE_ACCOUNT_CODE", "4212")
+                        pay_acc = db.execute(text("SELECT id FROM accounts WHERE company_id=:cid AND code LIKE :code AND is_active AND allow_posting AND NOT is_group ORDER BY code LIMIT 1"), {"cid": row["company_id"], "code": f"{payable_code}%"}).mappings().first()
+                        # get commitment supplier
+                        com = db.execute(text("SELECT supplier_id FROM budget_commitments WHERE id=:id"), {"id": commitment_id}).mappings().first()
+                        supplier_id = com["supplier_id"] if com else row2.get("supplier_id")
+                        if ba and pay_acc:
+                            entry_no = f"PAGO-{cdate:%Y%m%d}-{str(uuid4())[:6].upper()}"
+                            amt = Decimal(str(row2["amount"]))
+                            entry = db.execute(text("""
+                                INSERT INTO journal_entries (company_id, fiscal_year_id, fiscal_period_id, entry_number, entry_date, reference, description, currency, exchange_rate, total_debit, total_credit, created_by, status)
+                                VALUES (:cid, :fy, :period, :eno, :edate, :ref, :desc, 'PEN', 1, :amt, :amt, :actor, 'draft')
+                                RETURNING id
+                            """), {"cid": row["company_id"], "fy": fy["id"], "period": period["id"], "eno": entry_no, "edate": cdate, "ref": row2["number"], "desc": f"Pago orden {row2['number']}", "amt": amt, "actor": claims.get("sub")}).scalar_one()
+                            db.execute(text("INSERT INTO journal_entry_lines (journal_entry_id, account_id, auxiliary_id, line_number, description, debit_amount, credit_amount) VALUES (:jid,:acc,:aux,1,:d,:debit,0)"), {"jid": entry, "acc": pay_acc["id"], "aux": supplier_id, "d": "Pago a proveedor", "debit": amt})
+                            db.execute(text("INSERT INTO journal_entry_lines (journal_entry_id, account_id, auxiliary_id, line_number, description, debit_amount, credit_amount) VALUES (:jid,:acc,:aux,2,:d,0,:credit)"), {"jid": entry, "acc": ba["account_id"], "aux": None, "d": "Salida caja/banco", "credit": amt})
+                            _audit(db, claims, "finance.journal_entry.auto_created_from_payment_order", row["company_id"], "journal_entry", str(entry))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="No se pudo actualizar la orden de pago.") from exc
+    return PaymentOrderResponse(**dict(row2))
+
+
+@app.delete("/api/v1/finance/payment-orders/{order_id}", status_code=204, tags=["budgets"])
+def delete_payment_order(order_id: UUID, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    row = db.execute(text("SELECT company_id FROM payment_orders WHERE id=:id"), {"id": order_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Orden de pago no encontrada.")
+    require_company(claims, row["company_id"])
+    try:
+        db.execute(text("DELETE FROM payment_orders WHERE id=:id"), {"id": order_id})
+        _audit(db, claims, "finance.payment_order.deleted", row["company_id"], "payment_order", str(order_id))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="No se pudo eliminar la orden de pago.") from exc
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Finance banks (catalog)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/finance/banks", response_model=list[FinanceBankResponse], tags=["treasury"])
+def list_finance_banks(company_id: UUID = Query(...), db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, company_id)
+    rows = db.execute(text("SELECT id, company_id, code, name, is_active, created_at, updated_at FROM finance_banks WHERE company_id=:c ORDER BY name"), {"c": company_id}).mappings().all()
+    return [FinanceBankResponse(**dict(r)) for r in rows]
+
+
+@app.post("/api/v1/finance/banks", response_model=FinanceBankResponse, status_code=201, tags=["treasury"])
+def create_finance_bank(payload: FinanceBankCreate, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, payload.company_id)
+    try:
+        row = db.execute(text("""
+            INSERT INTO finance_banks (company_id, code, name, is_active)
+            VALUES (:company_id, :code, :name, :is_active)
+            RETURNING id, company_id, code, name, is_active, created_at, updated_at
+        """), payload.model_dump()).mappings().first()
+        _audit(db, claims, "finance.bank.created", payload.company_id, "finance_bank", str(row["id"]))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="No se pudo crear el banco.") from exc
+    return FinanceBankResponse(**dict(row))
+
+
+@app.patch("/api/v1/finance/banks/{bank_id}", response_model=FinanceBankResponse, tags=["treasury"])
+def update_finance_bank(bank_id: UUID, payload: FinanceBankCreate, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    current = db.execute(text("SELECT company_id FROM finance_banks WHERE id=:id"), {"id": bank_id}).mappings().first()
+    if not current:
+        raise HTTPException(status_code=404, detail="Banco no encontrado.")
+    require_company(claims, current["company_id"])
+    try:
+        row = db.execute(text("""
+            UPDATE finance_banks SET code=:code, name=:name, is_active=:is_active, updated_at=now()
+            WHERE id=:id
+            RETURNING id, company_id, code, name, is_active, created_at, updated_at
+        """), {**payload.model_dump(), "id": bank_id}).mappings().first()
+        _audit(db, claims, "finance.bank.updated", current["company_id"], "finance_bank", str(bank_id))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="No se pudo actualizar el banco.") from exc
+    return FinanceBankResponse(**dict(row))
+
+
+@app.delete("/api/v1/finance/banks/{bank_id}", status_code=204, tags=["treasury"])
+def delete_finance_bank(bank_id: UUID, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    current = db.execute(text("SELECT company_id FROM finance_banks WHERE id=:id"), {"id": bank_id}).mappings().first()
+    if not current:
+        raise HTTPException(status_code=404, detail="Banco no encontrado.")
+    require_company(claims, current["company_id"])
+    try:
+        db.execute(text("DELETE FROM finance_banks WHERE id=:id"), {"id": bank_id})
+        _audit(db, claims, "finance.bank.deleted", current["company_id"], "finance_bank", str(bank_id))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="No se pudo eliminar el banco (puede estar en uso).") from exc
+    return None

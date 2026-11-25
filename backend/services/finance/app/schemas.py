@@ -186,6 +186,7 @@ class BudgetBase(BaseModel):
     fiscal_year_id: UUID
     description: Optional[str] = None
     currency: str = Field(default="PEN", min_length=3, max_length=3)
+    origin_area: Optional[str] = Field(default=None, max_length=60)
 
 
 class BudgetCreate(BudgetBase):
@@ -320,6 +321,7 @@ class BudgetUpdate(BaseModel):
     description: Optional[str] = None
     status: Optional[str] = Field(default=None, pattern="^(draft|approved|active|closed)$")
     currency: Optional[str] = Field(default=None, min_length=3, max_length=3)
+    origin_area: Optional[str] = Field(default=None, max_length=60)
 
 
 class BudgetLineUpdate(BaseModel):
@@ -658,6 +660,74 @@ class OpeningBalanceCreate(BaseModel):
     journal_entry_id: Optional[UUID] = None
 
 class OpeningBalanceResponse(OpeningBalanceCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BudgetCDPCreate(BaseModel):
+    company_id: UUID
+    number: str = Field(min_length=1, max_length=80)
+    cdp_date: date
+    line_text: Optional[str] = None
+    requester_area: Optional[str] = None
+    amount: Decimal = Field(default=Decimal("0"))
+    status: str = Field(default="vigente", max_length=30)
+
+
+class BudgetCDPResponse(BudgetCDPCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BudgetCommitmentCreate(BaseModel):
+    company_id: UUID
+    number: str = Field(min_length=1, max_length=80)
+    commitment_date: date
+    reference: Optional[str] = None
+    amount: Decimal = Field(default=Decimal("0"))
+    status: str = Field(default="comprometido", max_length=30)
+    cdp_id: Optional[UUID] = None
+    supplier_id: Optional[UUID] = None
+
+
+class BudgetCommitmentResponse(BudgetCommitmentCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentOrderCreate(BaseModel):
+    company_id: UUID
+    number: str = Field(min_length=1, max_length=80)
+    order_date: date
+    payee: Optional[str] = None
+    amount: Decimal = Field(default=Decimal("0"))
+    status: str = Field(default="emitida", max_length=30)
+    commitment_id: Optional[UUID] = None
+    supplier_id: Optional[UUID] = None
+    bank_account_id: Optional[UUID] = None
+
+
+class PaymentOrderResponse(PaymentOrderCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FinanceBankCreate(BaseModel):
+    company_id: UUID
+    code: Optional[str] = None
+    name: str = Field(min_length=1, max_length=200)
+    is_active: bool = True
+
+
+class FinanceBankResponse(FinanceBankCreate):
     id: UUID
     created_at: datetime
     updated_at: datetime

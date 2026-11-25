@@ -19,7 +19,8 @@ def _sqlalchemy_database_url(url: str) -> str:
 
 
 database_url = _sqlalchemy_database_url(get_settings().database_url)
-connect_args = {"sslmode": "require"} if database_url.startswith("postgresql+") else {}
+is_local = "localhost" in database_url or "127.0.0.1" in database_url
+connect_args = {} if is_local else ({"sslmode": "require"} if database_url.startswith("postgresql+") else {})
 engine = create_engine(database_url, connect_args=connect_args, pool_pre_ping=True, pool_size=2, max_overflow=1)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 

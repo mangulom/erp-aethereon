@@ -49,10 +49,10 @@ def main() -> None:
         proxy_file = project_root / "frontend" / "proxy.conf.json"
         if proxy_file.is_file():
             proxy_config = json.loads(proxy_file.read_text(encoding="utf-8"))
-            if "/api" in proxy_config:
-                proxy_config["/api"]["target"] = f"http://{host}:{port}"
-                proxy_file.write_text(json.dumps(proxy_config, indent=2) + "\n", encoding="utf-8")
-                print(f"Proxy /api configurado a http://{host}:{port}", flush=True)
+            if "/auth" in proxy_config:
+                proxy_config["/auth"]["target"] = f"http://{host}:{port}"
+            proxy_file.write_text(json.dumps(proxy_config, indent=2) + "\n", encoding="utf-8")
+            print(f"Proxy /auth configurado a http://{host}:{port}", flush=True)
 
     uvicorn.run(
         "app.main:app",

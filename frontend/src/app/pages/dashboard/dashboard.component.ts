@@ -67,7 +67,7 @@ interface MetricCard {
         <article class="console-panel activity-console"><div class="console-panel-heading compact"><div><span class="panel-kicker">{{ isSpanish ? 'MONITOR DE EVENTOS' : 'EVENT MONITOR' }}</span><h2>{{ isSpanish ? 'Actividad y alertas' : 'Activity & alerts' }}</h2><p>{{ isSpanish ? 'Eventos confiables y auditables' : 'Trusted, audited system events' }}</p></div><span class="activity-dot">●</span></div><div class="activity-empty"><div class="activity-symbol">◎</div><b>{{ isSpanish ? 'Todo tranquilo por ahora' : 'All quiet for now' }}</b><p>{{ isSpanish ? 'Todavía no hay eventos de procesos ni alertas operativas.' : 'There are no workflow events or operational alerts yet.' }}</p></div><a class="panel-footer-link" routerLink="/settings">{{ isSpanish ? 'Abrir configuración de gobierno' : 'Open governance settings' }} <span>→</span></a></article>
       </div>
 
-      <footer class="command-bottomline"><span>AETHEREON <b>ERP</b> <i>·</i> {{ isSpanish ? 'CENTRO DE CONTROL' : 'COMMAND CENTER' }}</span><span>{{ isSpanish ? 'DESARROLLO LOCAL' : 'LOCAL DEVELOPMENT' }} <i>·</i> POSTGRESQL <i>·</i> {{ isSpanish ? 'DATOS DEMO DESACTIVADOS' : 'DEMO RECORDS DISABLED' }}</span></footer>
+      <footer class="command-bottomline"><span>SOPHIA <b>ERP</b> <i>·</i> {{ isSpanish ? 'CENTRO DE CONTROL' : 'COMMAND CENTER' }}</span><span>{{ isSpanish ? 'DESARROLLO LOCAL' : 'LOCAL DEVELOPMENT' }} <i>·</i> POSTGRESQL <i>·</i> {{ isSpanish ? 'DATOS DEMO DESACTIVADOS' : 'DEMO RECORDS DISABLED' }}</span></footer>
     </section>
   `,
 })

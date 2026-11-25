@@ -1,21 +1,22 @@
 import { Component, OnInit, signal } from '@angular/core';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from './core/auth.service';
 import { CompanyService } from './core/company.service';
 import { LanguageService } from './core/language.service';
 import { LoadingComponent } from './shared/loading.component';
+import { SidebarComponent } from './layout/sidebar.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, LoadingComponent],
+  imports: [RouterOutlet, RouterLink, LoadingComponent, SidebarComponent],
   templateUrl: './app.component.html',
 })
 export class AppComponent implements OnInit {
   showIntro = true;
   readonly mobileMenuOpen = signal(false);
   readonly profileMenuOpen = signal(false);
-  readonly expandedGroups = signal<string[]>(['maintenance']);
+  readonly expandedGroups = signal<string[]>([]);
   readonly searchValue = signal('');
   readonly user;
   readonly language;
@@ -33,7 +34,6 @@ export class AppComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadCompanies();
-    if (this.auth.user()?.is_platform_admin) this.expandedGroups.update((groups) => groups.includes('maintenance') ? groups : [...groups, 'maintenance']);
     this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd)).subscribe(() => {
       this.mobileMenuOpen.set(false);
       this.profileMenuOpen.set(false);

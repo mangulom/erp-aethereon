@@ -1,0 +1,16 @@
+tab === 'treasury'" (click)="setTab('treasury')">{{ t('Tesorería', 'Treasury') }}</button>
+          <button type="button" [class.active]="tab === 'assets'" (click)="setTab('assets')">{{ t('Activos fijos', 'Fixed assets') }}</button>
+          <button type="button" [class.active]="tab === 'projects'" (click)="setTab('projects')">{{ t('Proyectos / CC', 'Projects / Cost centers') }}</button>
+          <button type="button" [class.active]="tab === 'config'" (click)="setTab('config')">{{ t('Configuración', 'Configuration') }}</button>
+        </nav>
+
+        @if (loading) { <div class="fin-notice">{{ t('Cargando datos…', 'Loading data…') }}</div> }
+
+        @if (tab === 'overview') {
+          <div class="fin-overview-grid">
+            <article class="fin-kpi-card"><span class="panel-kicker">{{ t('AUXILIARES', 'AUXILIARIES') }}</span><div class="fin-kpi-value">{{ auxiliaries.length }}</div><p class="fin-kpi-sub">{{ t('Terceros contables', 'Accounting third parties') }}</p><button class="fin-secondary" type="button" (click)="setTab('auxiliaries')">{{ t('Gestionar', 'Manage') }}</button></article>
+            <article class="fin-kpi-card"><span class="panel-kicker">{{ t('CONTABILIDAD', 'ACCOUNTING') }}</span><div class="fin-kpi-value">→</div><p class="fin-kpi-sub">{{ t('Plan de cuentas, asientos y libros.', 'Chart, journals and books.') }}</p><a class="fin-secondary fin-link-btn" routerLink="/accounting">{{ t('Abrir', 'Open') }}</a></article>
+            <article class="fin-kpi-card"><span class="panel-kicker">{{ t('PRESUPUESTOS', 'BUDGETS') }}</span><div class="fin-kpi-value">→</div><p class="fin-kpi-sub">{{ t('Planificación y control.', 'Planning and control.') }}</p><a class="fin-secondary fin-link-btn" routerLink="/budgets">{{ t('Abrir', 'Open') }}</a></article>
+            <article class="fin-kpi-card fin-kpi-accent"><span class="panel-kicker">{{ t('IA FINANCIERA', 'FINANCIAL AI') }}</span><div class="fin-kpi-value">AI</div><p class="fin-kpi-sub">{{ t('Pronósticos y análisis inteligente.', 'Forecasts and smart analytics.') }}</p><a class="fin-primary fin-link-btn" routerLink="/inteligencia-ia">{{ t('Abrir IA', 'Open AI') }}</a></article>
+          </div>
+          <div class="fin-panel"><div class="fin-panel-title"><div><span class="panel-kicker">{{ t('EJERCICIOS FISCALES', 'FISCAL YEARS') }}</span><h3>{{ t('Años fiscales', 'Fiscal years') }}</h3></div><button class="fin-secondary" type="button" (click)="loadFiscalYears()">{{ t('Actualizar', 'Refresh') }}<

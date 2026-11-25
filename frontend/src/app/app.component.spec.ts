@@ -16,7 +16,7 @@ describe('AppComponent', () => {
     fixture.detectChanges();
     expect(fixture.componentInstance).toBeTruthy();
     expect(fixture.componentInstance.showIntro).toBeTrue();
-    expect(fixture.nativeElement.textContent).toContain('AETHEREON');
+    expect(fixture.nativeElement.textContent).toContain('SOPHIA');
     expect(fixture.nativeElement.textContent).toContain('INTELIGENCIA EMPRESARIAL');
   });
 });
