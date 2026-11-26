@@ -15,6 +15,8 @@ import io
 import logging
 from typing import Optional
 from uuid import UUID, uuid4
+import hashlib
+import json
 
 import jwt
 import math
@@ -42,6 +44,8 @@ from .schemas import (
     BudgetLineUpdate,
     BudgetResponse,
     BudgetUpdate,
+    BudgetTransferCreate,
+    BudgetTransferResponse,
     CompanyCreate,
     CompanyResponse,
     CompanyUpdate,
@@ -4133,6 +4137,147 @@ def export_sales_ple(company_id: UUID = Query(...), fiscal_period_id: UUID = Que
     filename = f"LE{company['tax_id'] or '20000000001'}140100001111.txt"
     return {"filename": filename, "content": content, "total_records": len(rows)}
 
+class WmsIntegrationInput(BaseModel):
+    company_id: UUID
+    integration_code: str = "WMS"
+    external_base_url: str | None = None
+    is_active: bool = True
+    inventory_account_id: UUID | None = None
+    offset_account_id: UUID | None = None
+    expense_account_id: UUID | None = None
+    valuation_method: str | None = None
+    currency: str | None = None
+
+
+class WmsSyncEventInput(BaseModel):
+    external_event_id: str
+    external_event_type: str
+    external_document_id: str | None = None
+    external_document_number: str | None = None
+    occurred_at: datetime | None = None
+    payload: dict = {}
+    lines: list[dict] = []
+
+
+@app.get("/api/v1/finance/wms/integration", tags=["wms-integration"])
+def get_wms_integration(company_id: UUID, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, company_id)
+    row = db.execute(text("""
+        SELECT wi.id,wi.company_id,wi.integration_code,wi.external_base_url,wi.is_active,
+          wi.inventory_account_id,ia.code AS inventory_account_code,ia.name AS inventory_account_name,
+          wi.offset_account_id,oa.code AS offset_account_code,oa.name AS offset_account_name,
+          wi.expense_account_id,ea.code AS expense_account_code,ea.name AS expense_account_name,
+          wi.valuation_method,wi.currency,wi.created_at,wi.updated_at
+        FROM wms_integrations wi
+        LEFT JOIN accounts ia ON ia.id=wi.inventory_account_id
+        LEFT JOIN accounts oa ON oa.id=wi.offset_account_id
+        LEFT JOIN accounts ea ON ea.id=wi.expense_account_id
+        WHERE wi.company_id=:company_id AND wi.integration_code='WMS'
+    """), {"company_id": company_id}).mappings().first()
+    events = db.execute(text("""
+        SELECT status,COUNT(*) AS count FROM wms_sync_events
+        WHERE company_id=:company_id GROUP BY status ORDER BY status
+    """), {"company_id": company_id}).mappings().all()
+    return {"integration": dict(row) if row else None, "event_counts": [dict(x) for x in events]}
+
+
+@app.put("/api/v1/finance/wms/integration", tags=["wms-integration"])
+def save_wms_integration(payload: WmsIntegrationInput, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, payload.company_id)
+    if payload.valuation_method and payload.valuation_method not in {"fifo", "weighted_average", "specific"}:
+        raise HTTPException(status_code=422, detail="Método de valoración inválido.")
+    if payload.currency and len(payload.currency) != 3:
+        raise HTTPException(status_code=422, detail="La moneda debe tener tres caracteres ISO.")
+    account_ids = {x for x in (payload.inventory_account_id, payload.offset_account_id, payload.expense_account_id) if x}
+    if account_ids:
+        rows = db.execute(text("SELECT id,account_type,account_subtype,is_active,allow_posting,is_group FROM accounts WHERE company_id=:c AND id=ANY(CAST(:ids AS uuid[]))"), {"c": payload.company_id, "ids": list(account_ids)}).mappings().all()
+        by_id = {r["id"]: r for r in rows}
+        if len(by_id) != len(account_ids) or any(not r["is_active"] or not r["allow_posting"] or r["is_group"] for r in by_id.values()):
+            raise HTTPException(status_code=422, detail="Todas las cuentas de integración deben ser cuentas imputables activas de esta empresa.")
+        if payload.inventory_account_id and by_id[payload.inventory_account_id]["account_type"] != "asset":
+            raise HTTPException(status_code=422, detail="La cuenta de inventario debe ser de activo.")
+        if payload.expense_account_id and by_id[payload.expense_account_id]["account_type"] != "expense":
+            raise HTTPException(status_code=422, detail="La cuenta de variación/costo debe ser de gasto.")
+    existing = db.execute(text("SELECT id FROM wms_integrations WHERE company_id=:c AND integration_code='WMS'"), {"c": payload.company_id}).scalar_one_or_none()
+    params = payload.model_dump()
+    if existing:
+        row = db.execute(text("""
+            UPDATE wms_integrations SET external_base_url=:external_base_url,is_active=:is_active,
+              inventory_account_id=:inventory_account_id,offset_account_id=:offset_account_id,
+              expense_account_id=:expense_account_id,valuation_method=:valuation_method,currency=:currency,updated_at=now()
+            WHERE id=:id RETURNING id,company_id,integration_code,external_base_url,is_active,
+              inventory_account_id,offset_account_id,expense_account_id,valuation_method,currency,created_at,updated_at
+        """), {**params, "id": existing}).mappings().first()
+        event = "finance.wms.integration.updated"
+    else:
+        row = db.execute(text("""
+            INSERT INTO wms_integrations(company_id,integration_code,external_base_url,is_active,
+              inventory_account_id,offset_account_id,expense_account_id,valuation_method,currency)
+            VALUES(:company_id,'WMS',:external_base_url,:is_active,:inventory_account_id,
+              :offset_account_id,:expense_account_id,:valuation_method,:currency)
+            RETURNING id,company_id,integration_code,external_base_url,is_active,
+              inventory_account_id,offset_account_id,expense_account_id,valuation_method,currency,created_at,updated_at
+        """), params).mappings().first()
+        event = "finance.wms.integration.created"
+    _audit(db, claims, event, payload.company_id, "wms_integration", str(row["id"]))
+    db.commit()
+    return dict(row)
+
+
+@app.get("/api/v1/finance/wms/events", tags=["wms-integration"])
+def list_wms_sync_events(company_id: UUID, status_filter: str | None = None, limit: int = Query(100, ge=1, le=500), db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, company_id)
+    sql = """SELECT e.id,e.external_event_id,e.external_event_type,e.external_document_id,e.external_document_number,
+      e.occurred_at,e.status,e.block_reason,e.journal_entry_id,e.received_at,e.processed_at,
+      (SELECT COUNT(*) FROM wms_sync_event_lines l WHERE l.event_id=e.id) AS line_count
+      FROM wms_sync_events e WHERE e.company_id=:company_id"""
+    params: dict = {"company_id": company_id, "limit": limit}
+    if status_filter:
+        sql += " AND e.status=:status_filter"
+        params["status_filter"] = status_filter
+    sql += " ORDER BY e.received_at DESC LIMIT :limit"
+    return [dict(row) for row in db.execute(text(sql), params).mappings().all()]
+
+
+@app.post("/api/v1/finance/wms/integration/{integration_id}/events", status_code=202, tags=["wms-integration"])
+def receive_wms_event(integration_id: UUID, payload: WmsSyncEventInput, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    """Store WMS events idempotently. This endpoint deliberately never posts accounting entries."""
+    integration = db.execute(text("SELECT * FROM wms_integrations WHERE id=:id"), {"id": integration_id}).mappings().first()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integración WMS no encontrada.")
+    require_company(claims, integration["company_id"])
+    if not integration["is_active"]:
+        raise HTTPException(status_code=409, detail="La integración WMS está desactivada.")
+    serialized = json.dumps(payload.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    existing = db.execute(text("SELECT id,payload_hash,status,journal_entry_id FROM wms_sync_events WHERE integration_id=:integration_id AND external_event_id=:external_event_id"), {"integration_id": integration_id, "external_event_id": payload.external_event_id}).mappings().first()
+    if existing:
+        if existing["payload_hash"] != digest:
+            raise HTTPException(status_code=409, detail="El ID externo ya existe con un payload diferente; no se sobrescribió el evento.")
+        return {"id": existing["id"], "status": existing["status"], "journal_entry_id": existing["journal_entry_id"], "duplicate": True}
+    ready = bool(integration["inventory_account_id"] and integration["offset_account_id"] and integration["valuation_method"] and integration["currency"])
+    block_reason = None if ready else "Falta configurar cuentas de inventario/contrapartida, método de valoración o moneda; requiere revisión antes de contabilizar."
+    try:
+        row = db.execute(text("""
+            INSERT INTO wms_sync_events(integration_id,company_id,external_event_id,external_event_type,
+              external_document_id,external_document_number,occurred_at,payload,payload_hash,status,block_reason)
+            VALUES(:integration_id,:company_id,:external_event_id,:external_event_type,
+              :external_document_id,:external_document_number,:occurred_at,CAST(:payload AS jsonb),:payload_hash,:status,:block_reason)
+            RETURNING id,status,block_reason
+        """), {"integration_id": integration_id, "company_id": integration["company_id"], "external_event_id": payload.external_event_id, "external_event_type": payload.external_event_type, "external_document_id": payload.external_document_id, "external_document_number": payload.external_document_number, "occurred_at": payload.occurred_at, "payload": serialized, "payload_hash": digest, "status": "preview" if ready else "blocked", "block_reason": block_reason}).mappings().first()
+        for line in payload.lines:
+            db.execute(text("""
+                INSERT INTO wms_sync_event_lines(event_id,external_line_id,external_material_id,material_code,material_description,quantity,unit_of_measure,unit_cost,currency,external_warehouse_id,external_location_id,external_lot_id,metadata)
+                VALUES(:event_id,:external_line_id,:external_material_id,:material_code,:material_description,:quantity,:unit_of_measure,:unit_cost,:currency,:external_warehouse_id,:external_location_id,:external_lot_id,CAST(:metadata AS jsonb))
+            """), {"event_id": row["id"], "external_line_id": line.get("external_line_id"), "external_material_id": line.get("external_material_id"), "material_code": line.get("material_code"), "material_description": line.get("material_description"), "quantity": line.get("quantity"), "unit_of_measure": line.get("unit_of_measure"), "unit_cost": line.get("unit_cost"), "currency": line.get("currency"), "external_warehouse_id": line.get("external_warehouse_id"), "external_location_id": line.get("external_location_id"), "external_lot_id": line.get("external_lot_id"), "metadata": json.dumps(line.get("metadata") or {}, ensure_ascii=False)} )
+        _audit(db, claims, "finance.wms.event.received", integration["company_id"], "wms_sync_event", str(row["id"]), {"external_event_id": payload.external_event_id, "status": row["status"], "payload_hash": digest})
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="No se pudo guardar el evento WMS; no se contabilizó ningún asiento.") from exc
+    return {"id": row["id"], "status": row["status"], "block_reason": row["block_reason"], "duplicate": False, "accounting_posted": False}
+
+
 @app.get("/api/v1/finance/reports/journal-book", tags=["accounting-books"])
 def get_journal_book(company_id: UUID = Query(...), start_date: date = Query(...), end_date: date = Query(...), db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
     """Libro Diario en formato oficial 5.1 PCGE con desglose de asientos y cuentas."""
@@ -4609,6 +4754,42 @@ def delete_payment_order(order_id: UUID, db: Session = Depends(get_db), claims: 
         db.rollback()
         raise HTTPException(status_code=409, detail="No se pudo eliminar la orden de pago.") from exc
     return None
+
+
+# ---------------------------------------------------------------------------
+# Budget transfers (traslados entre áreas)
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/finance/budget-transfers", response_model=list[BudgetTransferResponse], tags=["budgets"])
+def list_budget_transfers(company_id: UUID = Query(...), db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, company_id)
+    rows = db.execute(text("SELECT id, company_id, original_cdp_id, original_cdp_number, from_area, to_area, amount, new_partida, new_account_code, notes, created_at, updated_at FROM budget_transfers WHERE company_id=:c ORDER BY created_at DESC"), {"c": company_id}).mappings().all()
+    return [BudgetTransferResponse(**dict(r)) for r in rows]
+
+
+@app.post("/api/v1/finance/budget-transfers", response_model=BudgetTransferResponse, status_code=201, tags=["budgets"])
+def create_budget_transfer(payload: BudgetTransferCreate, db: Session = Depends(get_db), claims: dict = Depends(require_claims)):
+    require_company(claims, payload.company_id)
+    if payload.original_cdp_id:
+        cdp = db.execute(text("SELECT id, amount FROM budget_cdp WHERE id=:id AND company_id=:cid"), {"id": payload.original_cdp_id, "cid": payload.company_id}).mappings().first()
+        if not cdp:
+            raise HTTPException(status_code=404, detail="CDP origen no encontrado.")
+        committed = db.execute(text("SELECT COALESCE(SUM(amount),0) FROM budget_commitments WHERE cdp_id=:id AND status!='anulado'"), {"id": payload.original_cdp_id}).scalar_one()
+        transferred = db.execute(text("SELECT COALESCE(SUM(amount),0) FROM budget_transfers WHERE original_cdp_id=:id"), {"id": payload.original_cdp_id}).scalar_one()
+        available = Decimal(str(cdp["amount"])) - Decimal(str(committed)) - Decimal(str(transferred))
+        if Decimal(str(payload.amount)) > available:
+            raise HTTPException(status_code=409, detail=f"Saldo insuficiente en CDP para traslado. Disponible: {available}")
+    try:
+        row = db.execute(text("""
+            INSERT INTO budget_transfers (company_id, original_cdp_id, original_cdp_number, from_area, to_area, amount, new_partida, new_account_code, notes)
+            VALUES (:company_id, :original_cdp_id, :original_cdp_number, :from_area, :to_area, :amount, :new_partida, :new_account_code, :notes)
+            RETURNING id, company_id, original_cdp_id, original_cdp_number, from_area, to_area, amount, new_partida, new_account_code, notes, created_at, updated_at
+        """), payload.model_dump()).mappings().first()
+        _audit(db, claims, "finance.budget_transfer.created", payload.company_id, "budget_transfer", str(row["id"]))
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="No se pudo crear el traslado.") from exc
+    return BudgetTransferResponse(**dict(row))
 
 
 # ---------------------------------------------------------------------------

@@ -4,10 +4,11 @@
   "private": true,
   "description": "ERP multisectorial, multiempresa y basada en microfrontends/microservicios.",
   "scripts": {
-    "dev": "concurrently -k -n shell,identity -c blue,green \"npm:dev:shell\" \"npm:dev:identity\"",
+    "dev": "concurrently -k -n shell,identity,wms -c blue,green,cyan \"npm:dev:shell\" \"npm:dev:identity\" \"npm:dev:wms\"",
     "dev:db": "docker compose up -d postgres",
     "dev:shell": "npm --prefix frontend start",
     "dev:identity": "python backend/run.py",
+    "dev:wms": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-wms.ps1",
     "build": "npm --prefix frontend run build",
     "install:all": "npm install --ignore-scripts --no-audit --no-fund && npm --prefix frontend install --ignore-scripts --no-audit --no-fund --package-lock=false",
     "test:frontend": "npm --prefix frontend test -- --watch=false",

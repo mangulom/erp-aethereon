@@ -3,6 +3,9 @@ node_modules/
 backups/
 .venv/
 venv/
+**/.venv/
+**/.venv2/
+**/node_modules/
 __pycache__/
 *.py[cod]
 

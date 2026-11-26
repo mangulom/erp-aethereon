@@ -25,7 +25,7 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def create_access_token(user_id: str, company_ids: list[str], platform_admin: bool) -> tuple[str, datetime]:
+def create_access_token(user_id: str, company_ids: list[str], platform_admin: bool, permissions: list[str] | None = None) -> tuple[str, datetime]:
     settings = get_settings()
     now = datetime.now(UTC)
     expires_at = now + timedelta(minutes=settings.jwt_expire_minutes)
@@ -37,6 +37,7 @@ def create_access_token(user_id: str, company_ids: list[str], platform_admin: bo
         "aud": AUDIENCE,
         "platform_admin": platform_admin,
         "companies": [str(company_id) for company_id in company_ids],
+        "permissions": sorted(set(permissions or [])),
         "service": "finance",
     }
     token = jwt.encode(payload, settings.jwt_secret_key, algorithm=ALGORITHM, headers={"kid": "aethereon-v1"})

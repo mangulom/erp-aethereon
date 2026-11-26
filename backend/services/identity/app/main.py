@@ -133,6 +133,13 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse
         """),
         {"user_id": result["id"]},
     ).all()]
+    permission_codes = [row[0] for row in db.execute(text("""
+        SELECT DISTINCT p.code FROM memberships m
+        JOIN roles r ON r.id=m.role_id AND r.company_id=m.company_id
+        JOIN role_permissions rp ON rp.role_id=r.id
+        JOIN permissions p ON p.id=rp.permission_id
+        WHERE m.user_id=:user_id AND m.is_active
+    """), {"user_id": result["id"]}).all()]
     db.execute(
         text("""
             INSERT INTO audit_events (actor_user_id, actor_type, action, entity_type, entity_id)
@@ -141,7 +148,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse
         {"user_id": result["id"], "entity_id": str(result["id"])},
     )
     db.commit()
-    access_token, expiry = create_access_token(result["id"], company_ids, result["is_platform_admin"])
+    access_token, expiry = create_access_token(result["id"], company_ids, result["is_platform_admin"], permission_codes)
     user = UserResponse(
         id=result["id"], email=result["email"], display_name=result["display_name"], avatar_data_url=result.get("avatar_data_url"),
         is_platform_admin=result["is_platform_admin"],
@@ -231,7 +238,12 @@ def select_current_company(company_id: UUID,credentials: HTTPAuthorizationCreden
         raise HTTPException(status_code=403,detail="No tienes acceso a esta empresa.")
     user=db.execute(text("SELECT is_platform_admin FROM users WHERE id=:id AND is_active"),{"id":user_id}).mappings().first()
     if not user:raise HTTPException(status_code=401,detail="La cuenta no está activa.")
-    token,expiry=create_access_token(str(user_id),[str(company_id)],user["is_platform_admin"])
+    permission_codes=[row[0] for row in db.execute(text("""
+        SELECT DISTINCT p.code FROM memberships m JOIN roles r ON r.id=m.role_id AND r.company_id=m.company_id
+        JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id
+        WHERE m.user_id=:user_id AND m.company_id=:company_id AND m.is_active
+    """),{"user_id":user_id,"company_id":company_id}).all()]
+    token,expiry=create_access_token(str(user_id),[str(company_id)],user["is_platform_admin"],permission_codes)
     return {"access_token":token,"token_type":"bearer","expires_at":expiry,"selected_company_id":company_id}
 
 

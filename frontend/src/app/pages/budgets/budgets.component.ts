@@ -5,7 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { CompanyService } from '../../core/company.service';
 import { LanguageService } from '../../core/language.service';
 
-type BudgetTab = 'list' | 'pia' | 'execution' | 'cdp' | 'commitment' | 'payments';
+type BudgetTab = 'list' | 'pia' | 'execution' | 'cdp' | 'commitment' | 'payments' | 'transfers';
 
 @Component({
   selector: 'app-budgets',
@@ -30,6 +30,7 @@ type BudgetTab = 'list' | 'pia' | 'execution' | 'cdp' | 'commitment' | 'payments
           <button type="button" [class.active]="tab==='cdp'" (click)="tab='cdp'">{{ t('CDP', 'CDP') }}</button>
           <button type="button" [class.active]="tab==='commitment'" (click)="tab='commitment'">{{ t('Compromisos', 'Commitments') }}</button>
           <button type="button" [class.active]="tab==='payments'" (click)="tab='payments'">{{ t('Órdenes de pago', 'Payment Orders') }}</button>
+          <button type="button" [class.active]="tab==='transfers'" (click)="tab='transfers'">{{ t('Traslados', 'Transfers') }}</button>
         </nav>
 
         @if (tab==='list') {
@@ -42,7 +43,7 @@ type BudgetTab = 'list' | 'pia' | 'execution' | 'cdp' | 'commitment' | 'payments
 
         @if (tab==='cdp') {
           <div class="fin-panel">
-            <div class="fin-panel-title"><div><span class="panel-kicker">CDP</span><h3>{{ t('Certificados de Disponibilidad Presupuestal', 'Budget Availability Certificates') }}</h3></div><button class="fin-primary" type="button" (click)="showCdpForm = !showCdpForm">{{ showCdpForm ? t('Cancelar','Cancel') : t('Nuevo CDP','New CDP') }}</button></div>
+            <div class="fin-panel-title"><div><span class="panel-kicker">CDP</span><h3>{{ t('Certificados de Disponibilidad Presupuestal', 'Budget Availability Certificates') }}</h3></div><button class="fin-primary" type="button" (click)="toggleCdpForm()">{{ showCdpForm ? t('Cancelar','Cancel') : t('Nuevo CDP','New CDP') }}</button></div>
             <p class="fin-hint">{{ t('Efecto contable: usualmente es control presupuestal (no asiento obligatorio); reserva saldo. Al comprometer se usa el CDP; al devengar se registra la obligación/gasto según política.', 'Accounting effect: typically budgetary control (no mandatory journal in all systems); reserves balance. Used when committing; accrual recognized per policy.') }}</p>
             @if (showCdpForm) {
               <div class="fin-form-grid" style="margin:12px 0;">
@@ -56,8 +57,26 @@ type BudgetTab = 'list' | 'pia' | 'execution' | 'cdp' | 'commitment' | 'payments
               <button class="fin-primary" type="button" (click)="addCdp()">{{ t('Guardar CDP', 'Save CDP') }}</button>
             }
             <div class="fin-table-wrap" style="margin-top:12px;"><table class="fin-table"><thead><tr><th>N°</th><th>{{ t('Fecha','Date') }}</th><th>{{ t('Área','Area') }}</th><th>{{ t('Partida','Line') }}</th><th>{{ t('Monto','Amount') }}</th><th>{{ t('Estado','Status') }}</th><th></th></tr></thead><tbody>
-              @for (c of cdps; track c.id) { <tr><td>{{ c.number }}</td><td>{{ c.date }}</td><td>{{ c.requester_area || '—' }}</td><td>{{ c.line }}</td><td>{{ c.amount }}</td><td>{{ c.status }}</td><td><button class="fin-secondary" type="button" (click)="removeCdp(c.id)">{{ t('Eliminar','Delete') }}</button></td></tr> }
+              @for (c of cdps; track c.id) { <tr><td>{{ c.number }}</td><td>{{ c.date }}</td><td>{{ c.requester_area || '—' }}</td><td>{{ c.line }}</td><td>{{ c.amount }}</td><td>{{ c.status }}</td><td><button class="fin-secondary" type="button" (click)="editCdp(c)">{{ t('Editar','Edit') }}</button> <button class="fin-secondary" type="button" (click)="printCdp(c)">{{ t('Imprimir','Print') }}</button> <button class="fin-secondary" type="button" (click)="removeCdp(c.id)">{{ t('Eliminar','Delete') }}</button></td></tr> }
               @if (cdps.length===0) { <tr><td colspan="8" class="fin-empty">{{ t('Sin registros.','No records.') }}</td></tr> }
+            </tbody></table></div>
+            <hr style="margin:20px 0;border-color:#333;">
+            <h3 style="margin-bottom:8px;">{{ t('Traslados entre áreas (conserva CDP original)','Transfers between areas (keeps original CDP)') }}</h3>
+            <p class="fin-hint">{{ t('Registra traslados reasignando partida/cuenta en el destino y conservando el número de CDP original.', 'Record transfers reassigning partida/account at destination while keeping the original CDP number.') }}</p>
+            <div class="fin-form-grid" style="margin:12px 0;">
+              <label>{{ t('CDP origen','Origin CDP') }}<select [(ngModel)]="transferForm.original_cdp_id" (change)="onTransferCdpChange()"><option value="">{{ t('Seleccionar...','Select...') }}</option>@for(cd of cdps; track cd.id){<option [value]="cd.id">{{ cd.number }} ({{ cd.requester_area||'-' }})</option>}</select></label>
+              <label>{{ t('N° CDP original (guardado)','Original CDP No. (saved)') }}<input [(ngModel)]="transferForm.original_cdp_number" readonly></label>
+              <label>{{ t('Área origen','From area') }}<input [(ngModel)]="transferForm.from_area" readonly></label>
+              <label>{{ t('Área destino','To area') }}<select [(ngModel)]="transferForm.to_area"><option value="Logística">Logística</option><option value="Recursos Humanos">Recursos Humanos</option><option value="Finanzas">Finanzas</option><option value="Contabilidad">Contabilidad</option><option value="Otro">{{ t('Otro','Other') }}</option></select></label>
+              <label>{{ t('Monto','Amount') }}<input type="number" [(ngModel)]="transferForm.amount"></label>
+              <label>{{ t('Nueva partida','New partida') }}<input [(ngModel)]="transferForm.new_partida" placeholder="ej. 2.3.1.02"></label>
+              <label>{{ t('Nueva cuenta contable','New account code') }}<input [(ngModel)]="transferForm.new_account_code" placeholder="ej. 634"></label>
+              <label style="grid-column:1/-1;">{{ t('Notas','Notes') }}<input [(ngModel)]="transferForm.notes"></label>
+            </div>
+            <button class="fin-primary" type="button" (click)="addTransfer()">{{ t('Registrar traslado','Register transfer') }}</button>
+            <div class="fin-table-wrap" style="margin-top:12px;"><table class="fin-table"><thead><tr><th>{{ t('CDP original','Original CDP') }}</th><th>{{ t('De','From') }}</th><th>{{ t('A','To') }}</th><th>{{ t('Monto','Amount') }}</th><th>{{ t('Nueva partida','New partida') }}</th><th>{{ t('Nueva cuenta','New account') }}</th><th>{{ t('Notas','Notes') }}</th></tr></thead><tbody>
+              @for (t of transfers; track t.id) { <tr><td>{{ t.original_cdp_number }}</td><td>{{ t.from_area || '—' }}</td><td>{{ t.to_area }}</td><td>{{ t.amount }}</td><td>{{ t.new_partida || '—' }}</td><td>{{ t.new_account_code || '—' }}</td><td>{{ t.notes || '—' }}</td></tr> }
+              @if (transfers.length===0) { <tr><td colspan="7" class="fin-empty">{{ t('Sin traslados.','No transfers.') }}</td></tr> }
             </tbody></table></div>
           </div>
         }
@@ -69,8 +88,8 @@ type BudgetTab = 'list' | 'pia' | 'execution' | 'cdp' | 'commitment' | 'payments
             @if (showCommitForm) {
               <div class="fin-form-grid" style="margin:12px 0;">
                 <label>{{ t('Número','Number') }}<input [(ngModel)]="commitForm.number" placeholder="COMP-001"></label>
-                <label>{{ t('Fecha','Date') }}<input type="date" [(ngModel)]="commitForm.date"></label>
-                <label>{{ t('CDP (opcional)','CDP (optional)') }}<select [(ngModel)]="commitForm.cdp_id"><option value="">{{ t('Sin CDP','No CDP') }}</option>@for(cd of cdps; track cd.id){<option [value]="cd.id">{{ cd.number }} - {{ cd.requester_area||'' }}</option>}</select></label>
+                <label>{{ t('Fecha','Date') }}<input type="date" [(ngModel)]="commitForm.date" (change)="generateCommitNumber()"></label>
+                <label>{{ t('CDP (opcional)','CDP (optional)') }}<select [(ngModel)]="commitForm.cdp_id" (change)="generateCommitNumber()"><option value="">{{ t('Sin CDP','No CDP') }}</option>@for(cd of cdps; track cd.id){<option [value]="cd.id">{{ cd.number }} - {{ cd.requester_area||'' }}</option>}</select></label>
                 <label>{{ t('Proveedor','Supplier') }}<select [(ngModel)]="commitForm.supplier_id"><option value="">{{ t('Sin proveedor','No supplier') }}</option>@for(sp of suppliers; track sp.id){<option [value]="sp.id">{{ sp.code }} - {{ sp.name }}</option>}</select></label>
                 <label>{{ t('Referencia','Reference') }}<input [(ngModel)]="commitForm.reference" placeholder="OC-001"></label>
                 <label>{{ t('Monto','Amount') }}<input type="number" [(ngModel)]="commitForm.amount"></label>
@@ -107,6 +126,27 @@ type BudgetTab = 'list' | 'pia' | 'execution' | 'cdp' | 'commitment' | 'payments
                 <button class="fin-secondary" type="button" (click)="removePay(p.id)">{{ t('Eliminar','Delete') }}</button>
               </td></tr> }
               @if (payments.length===0) { <tr><td colspan="7" class="fin-empty">{{ t('Sin registros.','No records.') }}</td></tr> }
+            </tbody></table></div>
+          </div>
+        }
+        @if (tab==='transfers') {
+          <div class="fin-panel">
+            <div class="fin-panel-title"><div><span class="panel-kicker">{{ t('TRASLADOS','TRANSFERS') }}</span><h3>{{ t('Traslados entre áreas', 'Transfers between areas') }}</h3></div></div>
+            <p class="fin-hint">{{ t('Registra traslados conservando el N° de CDP original y reasignando partida/cuenta en el destino.', 'Record transfers keeping original CDP number and reassigning partida/account at destination.') }}</p>
+            <div class="fin-form-grid" style="margin:12px 0;">
+              <label>{{ t('CDP origen','Origin CDP') }}<select [(ngModel)]="transferForm.original_cdp_id" (change)="onTransferCdpChange()"><option value="">{{ t('Seleccionar...','Select...') }}</option>@for(cd of cdps; track cd.id){<option [value]="cd.id">{{ cd.number }} ({{ cd.requester_area||'-' }})</option>}</select></label>
+              <label>{{ t('N° CDP original','Original CDP No.') }}<input [(ngModel)]="transferForm.original_cdp_number" readonly></label>
+              <label>{{ t('Área origen','From area') }}<input [(ngModel)]="transferForm.from_area" readonly></label>
+              <label>{{ t('Área destino','To area') }}<select [(ngModel)]="transferForm.to_area"><option value="Logística">Logística</option><option value="Recursos Humanos">Recursos Humanos</option><option value="Finanzas">Finanzas</option><option value="Contabilidad">Contabilidad</option><option value="Otro">{{ t('Otro','Other') }}</option></select></label>
+              <label>{{ t('Monto','Amount') }}<input type="number" [(ngModel)]="transferForm.amount"></label>
+              <label>{{ t('Nueva partida','New partida') }}<input [(ngModel)]="transferForm.new_partida" placeholder="ej. 2.3.1.02"></label>
+              <label>{{ t('Nueva cuenta contable','New account code') }}<input [(ngModel)]="transferForm.new_account_code" placeholder="ej. 634"></label>
+              <label style="grid-column:1/-1;">{{ t('Notas','Notes') }}<input [(ngModel)]="transferForm.notes"></label>
+            </div>
+            <button class="fin-primary" type="button" (click)="addTransfer()">{{ t('Registrar traslado','Register transfer') }}</button>
+            <div class="fin-table-wrap" style="margin-top:12px;"><table class="fin-table"><thead><tr><th>{{ t('CDP original','Original CDP') }}</th><th>{{ t('De','From') }}</th><th>{{ t('A','To') }}</th><th>{{ t('Monto','Amount') }}</th><th>{{ t('Nueva partida','New partida') }}</th><th>{{ t('Nueva cuenta','New account') }}</th><th>{{ t('Notas','Notes') }}</th></tr></thead><tbody>
+              @for (t of transfers; track t.id) { <tr><td>{{ t.original_cdp_number }}</td><td>{{ t.from_area || '—' }}</td><td>{{ t.to_area }}</td><td>{{ t.amount }}</td><td>{{ t.new_partida || '—' }}</td><td>{{ t.new_account_code || '—' }}</td><td>{{ t.notes || '—' }}</td></tr> }
+              @if (transfers.length===0) { <tr><td colspan="7" class="fin-empty">{{ t('Sin traslados.','No transfers.') }}</td></tr> }
             </tbody></table></div>
           </div>
         }
@@ -154,7 +194,21 @@ type BudgetTab = 'list' | 'pia' | 'execution' | 'cdp' | 'commitment' | 'payments
           </div>
         }
         @if (tab==='execution') {
-          <div class="fin-panel"><p class="fin-hint">{{ t('Sección en desarrollo con datos de ejemplo.', 'Section with sample data.') }}</p></div>
+          <div class="fin-panel">
+            <h3>{{ t('Ejecución presupuestal (resumen)', 'Budget execution (summary)') }}</h3>
+            <div class="fin-table-wrap" style="margin-top:12px;">
+              <table class="fin-table">
+                <thead><tr><th>{{ t('Concepto','Concept') }}</th><th style="text-align:right;">{{ t('Monto (PEN)','Amount (PEN)') }}</th></tr></thead>
+                <tbody>
+                  <tr><td>{{ t('Total CDP (certificados)','Total CDP (certificates)') }}</td><td style="text-align:right;"><b>{{ totalCdp | number:'1.2-2' }}</b></td></tr>
+                  <tr><td>{{ t('Total Comprometido (no anulado)','Total Committed (not cancelled)') }}</td><td style="text-align:right;"><b>{{ totalCommitted | number:'1.2-2' }}</b></td></tr>
+                  <tr><td>{{ t('Total Pagado','Total Paid') }}</td><td style="text-align:right;"><b>{{ totalPaid | number:'1.2-2' }}</b></td></tr>
+                  <tr><td><b>{{ t('Saldo disponible (CDP − Comprometido)','Available balance (CDP − Committed)') }}</b></td><td style="text-align:right;"><b>{{ (totalCdp - totalCommitted) | number:'1.2-2' }}</b></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="fin-hint" style="margin-top:12px;">{{ t('Los compromisos pueden ser múltiples por CDP; la suma de compromisos no anulados no debe exceder el monto del CDP (validado al guardar).', 'Multiple commitments per CDP allowed; sum of non-cancelled commitments must not exceed CDP amount (validated on save).') }}</p>
+          </div>
         }
       }
     </section>
@@ -176,6 +230,7 @@ export class BudgetsComponent implements OnInit {
   payments: any[] = [];
   suppliers: any[] = [];
   bankAccounts: any[] = [];
+  transfers: any[] = [];
   selectedBudgetId: string | null = null;
   budgetLines: any[] = [];
   budgetLinesLoading = false;
@@ -188,6 +243,7 @@ export class BudgetsComponent implements OnInit {
   commitForm: any = { number: '', date: '', reference: '', amount: 0, status: 'comprometido', cdp_id: '', supplier_id: '' };
   payForm: any = { number: '', date: '', payee: '', amount: 0, status: 'emitida', supplier_id: '', bank_account_id: '' };
   budgetForm: any = { name: '', fiscal_year_id: '', description: '', currency: 'PEN', origin_area: 'general' };
+  transferForm: any = { original_cdp_id: '', original_cdp_number: '', from_area: '', to_area: 'Logística', amount: 0, new_partida: '', new_account_code: '', notes: '' };
   showCdpForm = false;
   showCommitForm = false;
   showPayForm = false;
@@ -201,11 +257,25 @@ export class BudgetsComponent implements OnInit {
 
   get hasCompany() { return this.companies.hasActiveCompany; }
   get isSpanish() { return this.language.language() === 'es'; }
+  get totalCdp() { return (this.cdps || []).reduce((s, c: any) => s + (Number(c.amount) || 0), 0); }
+  get totalCommitted() { return (this.commitments || []).filter((c: any) => c.status !== 'anulado').reduce((s, c: any) => s + (Number(c.amount) || 0), 0); }
+  get totalPaid() { return (this.payments || []).filter((p: any) => p.status === 'pagado' || p.status === 'paid').reduce((s, p: any) => s + (Number(p.amount) || 0), 0); }
   t(es: string, en: string) { return this.isSpanish ? es : en; }
   private params() { return { company_id: this.companies.context.selectedCompanyId }; }
-  ngOnInit(): void { if (this.hasCompany) { this.loadBudgets(); this.loadCdps(); this.loadCommitments(); this.loadPayments(); this.loadSuppliers(); this.loadBankAccounts(); this.loadFiscalYears(); this.loadAccounts(); } }
+  ngOnInit(): void { if (this.hasCompany) { this.loadBudgets(); this.loadCdps(); this.loadCommitments(); this.loadPayments(); this.loadSuppliers(); this.loadBankAccounts(); this.loadFiscalYears(); this.loadAccounts(); this.loadTransfers(); } }
   loadSuppliers() { this.http.get<any[]>('/api/v1/finance/auxiliaries', { params: { ...this.params(), auxiliary_type: 'supplier' } }).subscribe({ next: r=>{this.suppliers=r||[];}, error: ()=>{} }); }
   loadBankAccounts() { this.http.get<any[]>('/api/v1/finance/bank-accounts', { params: this.params() }).subscribe({ next: r=>{this.bankAccounts=r||[];}, error: ()=>{} }); }
+  loadTransfers() { this.http.get<any[]>('/api/v1/finance/budget-transfers', { params: this.params() }).subscribe({ next: r=>{this.transfers=r||[];}, error: ()=>{} }); }
+  onTransferCdpChange() {
+    const cdp = this.cdps.find(c => c.id === this.transferForm.original_cdp_id);
+    this.transferForm.original_cdp_number = cdp ? cdp.number : '';
+    this.transferForm.from_area = cdp ? (cdp.requester_area || '') : '';
+  }
+  addTransfer() {
+    if (!this.transferForm.original_cdp_number || !this.transferForm.to_area || !this.transferForm.amount) { this.error = this.t('Complete CDP original, área destino y monto.','Complete original CDP, destination area and amount.'); return; }
+    const payload: any = { company_id: this.companies.context.selectedCompanyId, original_cdp_id: this.transferForm.original_cdp_id || null, original_cdp_number: this.transferForm.original_cdp_number, from_area: this.transferForm.from_area || null, to_area: this.transferForm.to_area, amount: Number(this.transferForm.amount)||0, new_partida: this.transferForm.new_partida || null, new_account_code: this.transferForm.new_account_code || null, notes: this.transferForm.notes || null };
+    this.http.post<any>('/api/v1/finance/budget-transfers', payload).subscribe({ next: ()=>{ this.loadTransfers(); this.transferForm = { original_cdp_id:'', original_cdp_number:'', from_area:'', to_area:'Logística', amount:0, new_partida:'', new_account_code:'', notes:'' }; }, error: e=>{ this.error=e?.error?.detail||'Error'; } });
+  }
   loadAccounts() { this.http.get<any[]>('/api/v1/finance/accounts', { params: this.params() }).subscribe({ next: r=>{this.accounts=(r||[]).filter((a:any)=>a.allow_posting);}, error: ()=>{} }); }
   loadBudgets() { this.loading = true; this.http.get<any[]>('/api/v1/finance/budgets', { params: this.params() }).subscribe({ next: r=>{this.budgets=r||[];this.loading=false;}, error: e=>{this.error=e?.error?.detail||'Error';this.loading=false;} }); }
   loadFiscalYears() { this.http.get<any[]>('/api/v1/finance/fiscal-years', { params: this.params() }).subscribe({ next: r=>{this.fiscalYears=r||[];}, error: ()=>{} }); }
@@ -236,8 +306,34 @@ export class BudgetsComponent implements OnInit {
   loadCdps() { this.cdpLoading = true; this.http.get<any[]>('/api/v1/finance/budget-cdp', { params: this.params() }).subscribe({ next: r=>{this.cdps=(r||[]).map((x:any)=>({...x, date: x.cdp_date, line: x.line_text, requester_area: x.requester_area})); this.cdpLoading=false;}, error: e=>{this.error=e?.error?.detail||'Error';this.cdpLoading=false;} }); }
   addCdp() {
     if (!this.cdpForm.number) return;
-    const payload = { company_id: this.companies.context.selectedCompanyId, number: this.cdpForm.number, cdp_date: this.cdpForm.date, line_text: this.cdpForm.line, requester_area: this.cdpForm.requester_area, amount: Number(this.cdpForm.amount)||0, status: this.cdpForm.status };
-    this.http.post<any>('/api/v1/finance/budget-cdp', payload).subscribe({ next: ()=>{ this.loadCdps(); this.cdpForm = { number:'', date:'', line:'', amount:0, status:'vigente', requester_area: 'Logística' }; this.showCdpForm=false; }, error: e=>{ this.error=e?.error?.detail||'Error'; } });
+    const payload: any = { company_id: this.companies.context.selectedCompanyId, number: this.cdpForm.number, cdp_date: this.cdpForm.date, line_text: this.cdpForm.line, requester_area: this.cdpForm.requester_area, amount: Number(this.cdpForm.amount)||0, status: this.cdpForm.status };
+    if (this.editingCdpId) {
+      this.http.patch<any>(`/api/v1/finance/budget-cdp/${this.editingCdpId}`, payload).subscribe({ next: ()=>{ this.loadCdps(); this.cdpForm = { number:'', date:'', line:'', amount:0, status:'vigente', requester_area: 'Logística' }; this.showCdpForm=false; this.editingCdpId=null; }, error: e=>{ this.error=e?.error?.detail||'Error'; } });
+    } else {
+      this.http.post<any>('/api/v1/finance/budget-cdp', payload).subscribe({ next: ()=>{ this.loadCdps(); this.cdpForm = { number:'', date:'', line:'', amount:0, status:'vigente', requester_area: 'Logística' }; this.showCdpForm=false; }, error: e=>{ this.error=e?.error?.detail||'Error'; } });
+    }
+  }
+  editCdp(c: any) {
+    this.editingCdpId = c.id;
+    this.cdpForm = { number: c.number||'', date: c.date||'', line: c.line||'', amount: c.amount||0, status: c.status||'vigente', requester_area: c.requester_area||'Logística' };
+    this.showCdpForm = true;
+    this.error = '';
+  }
+  toggleCdpForm() {
+    if (this.showCdpForm) {
+      this.showCdpForm = false;
+      this.editingCdpId = null;
+      this.cdpForm = { number: '', date: '', line: '', amount: 0, status: 'vigente', requester_area: 'Logística' };
+    } else {
+      this.showCdpForm = true;
+    }
+  }
+  printCdp(c: any) {
+    const w = window.open('', '_blank', 'width=800,height=600');
+    if (!w) return;
+    const html = `<!doctype html><html><head><title>CDP ${c.number||''}</title><style>body{font-family:Arial,sans-serif;padding:24px;}h1{font-size:20px;}table{border-collapse:collapse;width:100%;}td,th{border:1px solid #ccc;padding:8px;text-align:left;}</style></head><body><h1>Certificado de Disponibilidad Presupuestal (CDP)</h1><table><tr><th>Número</th><td>${c.number||''}</td></tr><tr><th>Fecha</th><td>${c.date||''}</td></tr><tr><th>Área solicitante</th><td>${c.requester_area||''}</td></tr><tr><th>Partida/Linea</th><td>${c.line||''}</td></tr><tr><th>Monto</th><td>${c.amount||0}</td></tr><tr><th>Estado</th><td>${c.status||''}</td></tr></table><script>window.onload=function(){window.print();};</script></body></html>`;
+    w.document.write(html);
+    w.document.close();
   }
   openCdpModal(item?: any) {
     this.showCdpModal = true; this.error = '';
@@ -265,6 +361,15 @@ export class BudgetsComponent implements OnInit {
     });
   }
   loadCommitments() { this.commitLoading = true; this.http.get<any[]>('/api/v1/finance/budget-commitments', { params: this.params() }).subscribe({ next: r=>{this.commitments=(r||[]).map((x:any)=>({...x, date: x.commitment_date})); this.commitLoading=false;}, error: e=>{this.error=e?.error?.detail||'Error';this.commitLoading=false;} }); }
+  generateCommitNumber() {
+    if (!this.commitForm.cdp_id) return;
+    const cdp = this.cdps.find(c => c.id === this.commitForm.cdp_id);
+    if (!cdp) return;
+    const year = this.commitForm.date ? new Date(this.commitForm.date + 'T00:00:00').getFullYear() : new Date().getFullYear();
+    const countForCdp = this.commitments.filter((c: any) => c.cdp_id === this.commitForm.cdp_id).length + 1;
+    const padded = String(countForCdp).padStart(5, '0');
+    this.commitForm.number = `${cdp.number}/${year}/${padded}`;
+  }
   addCommit() {
     if (!this.commitForm.number) return;
     const payload: any = { company_id: this.companies.context.selectedCompanyId, number: this.commitForm.number, commitment_date: this.commitForm.date, reference: this.commitForm.reference, amount: Number(this.commitForm.amount)||0, status: this.commitForm.status };

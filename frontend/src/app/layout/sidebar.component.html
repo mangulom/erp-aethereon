@@ -8,39 +8,45 @@
 
   <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('command')" [attr.aria-expanded]="isGroupExpanded('command')">
     <span>{{ t('CENTRO DE CONTROL','COMMAND CENTER') }}</span>
-    <span class="group-chevron" [class.expanded]="isGroupExpanded('command')">▾</span>
+    <span class="group-chevron" [class.expanded]="isGroupExpanded('command')">▸</span>
   </button>
   <nav class="sidebar-nav">
     @if (isGroupExpanded('command')) {
-      <a class="nav-link" routerLink="/dashboard" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">◈</span><span class="nav-label">{{ t('Resumen ejecutivo','Executive overview') }}</span></a>
-      <a class="nav-link" routerLink="/modules" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">☰</span><span class="nav-label">{{ t('Flujos y módulos','Workflows & modules') }}</span><span class="nav-soon">22</span></a>
-      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">◉</span><span class="nav-label">{{ t('Agentes IA','AI agents') }}</span><span class="nav-soon">{{ t('PRONTO','NEXT') }}</span></a>
-      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">◔</span><span class="nav-label">{{ t('Analítica','Analytics') }}</span></a>
-      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">✓</span><span class="nav-label">{{ t('Aprobaciones','Approvals') }}</span></a>
+      <a class="nav-link" routerLink="/dashboard" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">⌂</span><span class="nav-label">{{ t('Resumen ejecutivo','Executive overview') }}</span></a>
+      <a class="nav-link" routerLink="/modules" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">◈</span><span class="nav-label">{{ t('Flujos y módulos','Workflows & modules') }}</span><span class="nav-soon">22</span></a>
+      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">◎</span><span class="nav-label">{{ t('Agentes IA','AI agents') }}</span><span class="nav-soon">{{ t('PRONTO','NEXT') }}</span></a>
+      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">◉</span><span class="nav-label">{{ t('Analítica','Analytics') }}</span></a>
+      <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">☰</span><span class="nav-label">{{ t('Aprobaciones','Approvals') }}</span></a>
     }
     <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('finance')" [attr.aria-expanded]="isGroupExpanded('finance')">
       <span>{{ t('FINANZAS Y CONTROL','FINANCE & CONTROL') }}</span>
-      <span class="group-chevron" [class.expanded]="isGroupExpanded('finance')">▾</span>
+      <span class="group-chevron" [class.expanded]="isGroupExpanded('finance')">▸</span>
     </button>
     @if (isGroupExpanded('finance')) {
-      <a class="nav-link" routerLink="/finance" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}" (click)="closeMobileMenu.emit()"><span class="nav-symbol">💰</span><span class="nav-label">{{ t('Finanzas y tesorería','Finance & treasury') }}</span></a>
+      <a class="nav-link" routerLink="/finance" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">💰</span><span class="nav-label">{{ t('Finanzas y tesorería','Finance & treasury') }}</span></a>
       <a class="nav-link" routerLink="/accounting" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">📒</span><span class="nav-label">{{ t('Contabilidad','Accounting') }}</span></a>
       <a class="nav-link" routerLink="/budgets" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">📊</span><span class="nav-label">{{ t('Presupuestos','Budgets') }}</span></a>
-      <a class="nav-link nav-ai" routerLink="/inteligencia-ia" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">✨</span><span class="nav-label">{{ t('Inteligencia Artificial Aplicada','Applied Artificial Intelligence') }}</span></a>
+      <a class="nav-link" routerLink="/inteligencia-ia" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">🤖</span><span class="nav-label">{{ t('Inteligencia Artificial Aplicada','Applied Artificial Intelligence') }}</span></a>
     }
     <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('operations')" [attr.aria-expanded]="isGroupExpanded('operations')">
       <span>{{ t('OPERACIONES','OPERATIONS') }}</span>
-      <span class="group-chevron" [class.expanded]="isGroupExpanded('operations')">▾</span>
+      <span class="group-chevron" [class.expanded]="isGroupExpanded('operations')">▸</span>
     </button>
     @if (isGroupExpanded('operations')) {
       <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">🛒</span><span class="nav-label">{{ t('Ventas y CRM','Sales & CRM') }}</span></a>
       <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">📦</span><span class="nav-label">{{ t('Abastecimiento','Procurement') }}</span></a>
       <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">📦</span><span class="nav-label">{{ t('Inventario','Inventory') }}</span></a>
       <a class="nav-link" routerLink="/logistics" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">🚚</span><span class="nav-label">{{ t('Logística','Logistics') }}</span></a>
+      <a class="nav-link" routerLink="/logistics/wms" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">🏭</span><span class="nav-label">{{ t('WMS (nuevo)','WMS (new)') }}</span></a>
+      <a class="nav-link" routerLink="/logistics/wms/materiales" (click)="closeMobileMenu.emit()"><span class="nav-symbol">·</span><span class="nav-label" style="padding-left:8px;">{{ t('WMS · Materiales','WMS · Materials') }}</span></a>
+      <a class="nav-link" routerLink="/logistics/wms/inventario" (click)="closeMobileMenu.emit()"><span class="nav-symbol">·</span><span class="nav-label" style="padding-left:8px;">{{ t('WMS · Inventario','WMS · Inventory') }}</span></a>
+      <a class="nav-link" routerLink="/logistics/wms/recepciones" (click)="closeMobileMenu.emit()"><span class="nav-symbol">·</span><span class="nav-label" style="padding-left:8px;">{{ t('WMS · Recepciones','WMS · Receipts') }}</span></a>
+      <a class="nav-link" routerLink="/logistics/wms/despachos" (click)="closeMobileMenu.emit()"><span class="nav-symbol">·</span><span class="nav-label" style="padding-left:8px;">{{ t('WMS · Despachos','WMS · Dispatches') }}</span></a>
+      <a class="nav-link" routerLink="/logistics/wms/lotes" (click)="closeMobileMenu.emit()"><span class="nav-symbol">·</span><span class="nav-label" style="padding-left:8px;">{{ t('WMS · Lotes','WMS · Lots') }}</span></a>
     }
     <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('people')" [attr.aria-expanded]="isGroupExpanded('people')">
       <span>{{ t('PERSONAS Y PRODUCCIÓN','PEOPLE & PRODUCTION') }}</span>
-      <span class="group-chevron" [class.expanded]="isGroupExpanded('people')">▾</span>
+      <span class="group-chevron" [class.expanded]="isGroupExpanded('people')">▸</span>
     </button>
     @if (isGroupExpanded('people')) {
       <a class="nav-link" routerLink="/human-resources" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">👥</span><span class="nav-label">{{ t('Recursos humanos','Human resources') }}</span></a>
@@ -48,7 +54,7 @@
     }
     <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('governance')" [attr.aria-expanded]="isGroupExpanded('governance')">
       <span>{{ t('GOBERNANZA','GOVERNANCE') }}</span>
-      <span class="group-chevron" [class.expanded]="isGroupExpanded('governance')">▾</span>
+      <span class="group-chevron" [class.expanded]="isGroupExpanded('governance')">▸</span>
     </button>
     @if (isGroupExpanded('governance')) {
       <a class="nav-link nav-planned" routerLink="/modules"><span class="nav-symbol">🛡</span><span class="nav-label">{{ t('Calidad y cumplimiento','Quality & compliance') }}</span></a>
@@ -56,30 +62,52 @@
     @if (user?.is_platform_admin) {
       <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('maintenance')" [attr.aria-expanded]="isGroupExpanded('maintenance')">
         <span>{{ t('MANTENIMIENTO','MAINTENANCE') }}</span>
-        <span class="group-chevron" [class.expanded]="isGroupExpanded('maintenance')">▾</span>
+        <span class="group-chevron" [class.expanded]="isGroupExpanded('maintenance')">▸</span>
       </button>
       @if (isGroupExpanded('maintenance')) {
         <a class="nav-link" routerLink="/maintenance/companies" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">🏢</span><span class="nav-label">{{ t('Empresas','Companies') }}</span></a>
-        <a class="nav-link" routerLink="/maintenance/users" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">👥</span><span class="nav-label">{{ t('Usuarios','Users') }}</span></a>
+        <a class="nav-link" routerLink="/maintenance/users" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">👤</span><span class="nav-label">{{ t('Usuarios','Users') }}</span></a>
         <a class="nav-link" routerLink="/maintenance/document-types" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">📄</span><span class="nav-label">{{ t('Tipos de documento','Document types') }}</span></a>
         <a class="nav-link" routerLink="/maintenance/roles" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">🛡</span><span class="nav-label">{{ t('Roles','Roles') }}</span></a>
       }
     }
     <button class="sidebar-group-toggle" type="button" (click)="toggleGroup('platform')" [attr.aria-expanded]="isGroupExpanded('platform')">
       <span>{{ t('PLATAFORMA','PLATFORM') }}</span>
-      <span class="group-chevron" [class.expanded]="isGroupExpanded('platform')">▾</span>
+      <span class="group-chevron" [class.expanded]="isGroupExpanded('platform')">▸</span>
     </button>
     @if (isGroupExpanded('platform')) {
       <a class="nav-link" routerLink="/settings" routerLinkActive="active" (click)="closeMobileMenu.emit()"><span class="nav-symbol">⚙</span><span class="nav-label">{{ t('Configuración de plataforma','Platform settings') }}</span></a>
     }
   </nav>
   <div class="sidebar-bottom">
+    <div style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:8px;">
+      <button type="button" (click)="openThemeModal()" title="{{ t('Cambiar color del tema','Change theme color') }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--theme-accent, #a78bfa);background:var(--theme-accent-bg, rgba(167,139,250,0.18));border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--theme-accent, #a78bfa)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.37 2.63 14 7l-1.59-1.59a2 2 0 0 0-2.82 0L8 7l9 9 1.59-1.59a2 2 0 0 0 0-2.82L17 10l4.37-4.37a2.12 2.12 0 1 0-3-3Z"/><path d="M9 8c-2 3-4 3.5-7 4l8 10c2-1 6-5 6-7"/><path d="M14.5 17.5 4.5 15"/></svg>
+        <span style="color:#fff;">{{ t('Color del tema','Theme color') }}</span>
+      </button>
+    </div>
     <div class="user-row">
       <button class="user-avatar profile-sidebar-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-label]="t('Abrir perfil de usuario','Open user profile')">
-        @if(user?.avatar_data_url){<img [src]="user.avatar_data_url" alt="">}@else {<span>{{ user?.display_name?.slice(0,1) || 'U' }}</span>}
+        @if(user?.avatar_data_url){<img [src]="user?.avatar_data_url" alt="">}@else {<span>{{ user?.display_name?.slice(0,1) || 'U' }}</span>}
       </button>
       <span class="user-copy"><b>{{ user?.display_name || 'Usuario' }}</b><small>{{ user?.is_platform_admin ? t('Administrador de plataforma','Platform Admin') : t('Usuario empresarial','Enterprise User') }}</small></span>
-      <button class="logout-button" type="button" (click)="logout()">⎋</button>
+      <button class="logout-button" type="button" (click)="logout()">⏻</button>
     </div>
   </div>
 </aside>
+@if (showThemeModal) {
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;" (click)="closeThemeModal()">
+    <div style="background:#1a1d2e;border:1px solid #333;border-radius:8px;padding:20px;max-width:320px;width:90%;" (click)="$event.stopPropagation()">
+      <h3 style="margin:0 0 12px;color:#fff;font-size:16px;">{{ t('Color del tema','Theme color') }}</h3>
+      <p style="margin:0 0 12px;color:#ccc;font-size:13px;">{{ t('Selecciona un color para el acento del layout.','Pick an accent color for the layout.') }}</p>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <input type="color" [value]="theme.accentColor()" (input)="onAccentChange($event)" style="width:60px;height:40px;padding:0;border:none;background:transparent;cursor:pointer;" />
+        <span style="color:#aaa;font-size:12px;">{{ theme.accentColor() }}</span>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" (click)="resetTheme()" style="padding:8px 14px;border:1px solid #555;background:transparent;color:#ccc;border-radius:4px;cursor:pointer;">{{ t('Por defecto','Default') }}</button>
+        <button type="button" (click)="closeThemeModal()" style="padding:8px 14px;border:none;background:var(--theme-accent, #a78bfa);color:#fff;border-radius:4px;cursor:pointer;">{{ t('Cerrar','Close') }}</button>
+      </div>
+    </div>
+  </div>
+}

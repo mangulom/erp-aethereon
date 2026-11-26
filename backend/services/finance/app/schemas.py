@@ -733,3 +733,22 @@ class FinanceBankResponse(FinanceBankCreate):
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
+
+class BudgetTransferCreate(BaseModel):
+    company_id: UUID
+    original_cdp_id: Optional[UUID] = None
+    original_cdp_number: str = Field(min_length=1, max_length=80)
+    from_area: Optional[str] = None
+    to_area: str = Field(min_length=1, max_length=80)
+    amount: Decimal = Field(default=Decimal("0"), gt=0)
+    new_partida: Optional[str] = None
+    new_account_code: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class BudgetTransferResponse(BudgetTransferCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+

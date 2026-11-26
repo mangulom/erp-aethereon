@@ -1,4 +1,13 @@
 {
+  "/api/v1/wms": {
+    "target": "http://127.0.0.1:18005",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "warn",
+    "pathRewrite": {
+      "^/api/v1/wms": "/api/v1"
+    }
+  },
   "/api/v1/auth": {
     "target": "http://127.0.0.1:18001",
     "secure": false,
