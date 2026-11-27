@@ -205,10 +205,26 @@ interface FiscalYearRow {
         }
 @if (tab === 'accounts') {
           <div class="fin-panel">
-            <div class="fin-panel-title"><div><span class="panel-kicker">{{ t('CONTABILIDAD', 'ACCOUNTING') }}</span><h3>{{ t('Cuentas contables', 'Chart of accounts') }}</h3></div><button class="fin-secondary" type="button" (click)="loadAccounts()">{{ t('Actualizar', 'Refresh') }}</button></div>
+            <div class="fin-panel-title"><div><span class="panel-kicker">{{ t('CONTABILIDAD', 'ACCOUNTING') }}</span><h3>{{ t('Cuentas contables', 'Chart of accounts') }}</h3></div><div style="display:flex;gap:8px;"><button class="fin-primary" type="button" (click)="openAccountForm()">{{ t('Nueva cuenta','New account') }}</button><button class="fin-secondary" type="button" (click)="loadAccounts()">{{ t('Actualizar', 'Refresh') }}</button></div></div>
             @if (loadingAccounts) { <div class="fin-notice">{{ t('Cargando…', 'Loading…') }}</div> }
             @if (!loadingAccounts && accounts.length === 0) { <div class="fin-empty">{{ t('Sin cuentas.', 'No accounts.') }}</div> }
-            @if (accounts.length > 0) { <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>{{ t('Código', 'Code') }}</th><th>{{ t('Nombre', 'Name') }}</th><th>{{ t('Tipo', 'Type') }}</th><th>{{ t('Activa', 'Active') }}</th></tr></thead><tbody>@for (a of accounts; track a.id) { <tr><td>{{ a.code }}</td><td>{{ a.name }}</td><td>{{ a.account_type }}</td><td>{{ a.is_active ? t('Sí','Yes') : t('No','No') }}</td></tr> }</tbody></table></div> }
+            @if (accounts.length > 0) { <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>{{ t('Código', 'Code') }}</th><th>{{ t('Nombre', 'Name') }}</th><th>{{ t('Tipo', 'Type') }}</th><th>{{ t('Activa', 'Active') }}</th><th>{{ t('Acciones','Actions') }}</th></tr></thead><tbody>@for (a of accounts; track a.id) { <tr><td>{{ a.code }}</td><td>{{ a.name }}</td><td>{{ a.account_type }}</td><td>{{ a.is_active ? t('Sí','Yes') : t('No','No') }}</td><td><button class="fin-secondary" type="button" (click)="openAccountForm(a)">{{ t('Editar','Edit') }}</button> <button class="fin-secondary" type="button" (click)="deleteAccount(a)">{{ t('Eliminar','Delete') }}</button></td></tr> }</tbody></table></div> }
+            @if (showAccountForm) {
+              <div style="margin-top:16px;padding:16px;border:1px solid #334155;border-radius:8px;">
+                <h4 style="margin:0 0 12px;">{{ editingAccountId ? t('Editar cuenta','Edit account') : t('Nueva cuenta','New account') }}</h4>
+                <div class="fin-form-grid">
+                  <label>{{ t('Código','Code') }}<input [(ngModel)]="accountForm.code" [disabled]="!!editingAccountId"></label>
+                  <label>{{ t('Nombre','Name') }}<input [(ngModel)]="accountForm.name"></label>
+                  <label>{{ t('Tipo','Type') }}<select [(ngModel)]="accountForm.account_type"><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="revenue">Revenue</option><option value="expense">Expense</option></select></label>
+                  <label>{{ t('Subtipo','Subtype') }}<input [(ngModel)]="accountForm.account_subtype" placeholder="opcional"></label>
+                  <label>{{ t('Moneda','Currency') }}<input [(ngModel)]="accountForm.currency" maxlength="3"></label>
+                  <label>{{ t('Es grupo','Is group') }}<select [(ngModel)]="accountForm.is_group"><option [ngValue]="false">No</option><option [ngValue]="true">Yes</option></select></label>
+                  <label>{{ t('Permite registro','Allow posting') }}<select [(ngModel)]="accountForm.allow_posting"><option [ngValue]="true">Yes</option><option [ngValue]="false">No</option></select></label>
+                  <label>{{ t('Activa','Active') }}<select [(ngModel)]="accountForm.is_active"><option [ngValue]="true">Yes</option><option [ngValue]="false">No</option></select></label>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:12px;"><button class="fin-primary" type="button" [disabled]="accountFormSaving" (click)="saveAccount()">{{ accountFormSaving?t('Guardando…','Saving…'):t('Guardar','Save') }}</button><button class="fin-secondary" type="button" (click)="closeAccountForm()">{{ t('Cancelar','Cancel') }}</button></div>
+              </div>
+            }
           </div>
         }
         @if (tab === 'clients' || tab === 'suppliers' || tab === 'auxiliaries') {
@@ -273,6 +289,10 @@ export class FinanceComponent implements OnInit {
   auxFormSaving = false;
   editingAuxId: string | null = null;
   auxForm: any = { code: '', name: '', auxiliary_type: 'customer', tax_id: '', email: '', phone: '', address: '', is_active: true };
+  showAccountForm = false;
+  accountFormSaving = false;
+  editingAccountId: string | null = null;
+  accountForm: any = { code: '', name: '', account_type: 'asset', account_subtype: '', is_group: false, allow_posting: true, is_active: true, currency: 'PEN' };
   journals: JournalRow[] = [];
   fiscalYears: FiscalYearRow[] = [];
   selectedJournal: any = null;
@@ -446,6 +466,32 @@ export class FinanceComponent implements OnInit {
       next: () => this.loadAuxiliaries(),
       error: (e) => this.handleError(e)
     });
+  }
+  openAccountForm(a?: any): void {
+    this.showAccountForm = true; this.error = '';
+    if (a) {
+      this.editingAccountId = a.id;
+      this.accountForm = { code: a.code||'', name: a.name||'', account_type: a.account_type||'asset', account_subtype: a.account_subtype||'', is_group: !!a.is_group, allow_posting: a.allow_posting!==false, is_active: a.is_active!==false, currency: a.currency||'PEN' };
+    } else {
+      this.editingAccountId = null;
+      this.accountForm = { code: '', name: '', account_type: 'asset', account_subtype: '', is_group: false, allow_posting: true, is_active: true, currency: 'PEN' };
+    }
+  }
+  closeAccountForm(): void { this.showAccountForm = false; this.editingAccountId = null; }
+  saveAccount(): void {
+    if (!this.accountForm.code || !this.accountForm.name) { this.error = this.t('Código y nombre son obligatorios.', 'Code and name are required.'); return; }
+    this.accountFormSaving = true;
+    const payload: any = { ...this.accountForm, account_subtype: this.accountForm.account_subtype || null };
+    if (this.editingAccountId) {
+      this.http.put(`/api/v1/finance/accounts/${this.editingAccountId}`, payload).subscribe({ next: () => { this.accountFormSaving=false; this.closeAccountForm(); this.loadAccounts(); }, error: (e) => { this.handleError(e); this.accountFormSaving=false; } });
+    } else {
+      payload.company_id = this.companyId;
+      this.http.post('/api/v1/finance/accounts', payload).subscribe({ next: () => { this.accountFormSaving=false; this.closeAccountForm(); this.loadAccounts(); }, error: (e) => { this.handleError(e); this.accountFormSaving=false; } });
+    }
+  }
+  deleteAccount(a: any): void {
+    if (!confirm(this.t('¿Eliminar esta cuenta?', 'Delete this account?'))) return;
+    this.http.delete(`/api/v1/finance/accounts/${a.id}`).subscribe({ next: () => this.loadAccounts(), error: (e) => this.handleError(e) });
   }
 
   loadJournals(silent = false): void {

@@ -1,5 +1,6 @@
 from functools import lru_cache
 import os
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,7 +16,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
     cors_origins: str = "http://localhost:42000,http://127.0.0.1:42000"
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=[Path(__file__).resolve().parents[1] / ".env", ".env"], extra="ignore", case_sensitive=False)
 
     @property
     def allowed_origins(self) -> list[str]:

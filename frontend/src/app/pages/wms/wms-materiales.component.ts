@@ -2,38 +2,115 @@ import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-
+import { WmsTabsComponent } from './wms-tabs.component';
 @Component({
   selector: 'app-wms-materiales',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, WmsTabsComponent],
   template: `
-    <section style="padding:24px;color:#e8edf5;">
-      <h2 style="margin:0 0 6px;">WMS · Ítems (Materiales)</h2>
-      <p style="color:#94a3b8;max-width:760px;">Lista desde <code>/api/wms/materiales</code>. Si no ves datos, verifica que el servicio WMS esté en 18005 y que tengas sesión WMS (usa el módulo Logística para conectar si es necesario).</p>
-      <div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;">
-        <input [(ngModel)]="q" placeholder="Buscar..." style="padding:8px 10px;border-radius:8px;border:1px solid #334155;background:#0b1422;color:#e8edf5;min-width:220px;" (keyup.enter)="load()" />
-        <button type="button" (click)="load()" style="padding:8px 14px;border-radius:8px;border:1px solid #43c6b0;background:#43c6b0;color:#072622;font-weight:600;cursor:pointer;">Buscar / Actualizar</button>
-        <a routerLink="/logistics/wms" style="padding:8px 14px;border-radius:8px;border:1px solid #555;color:#ccc;text-decoration:none;">← Panel WMS</a>
+    <section class="fin-workspace">
+      <header class="fin-header fin-header-advanced">
+        <div class="fin-header-main">
+          <span class="panel-kicker">WMS</span>
+          <h1 class="fin-title-main">Materiales</h1>
+          <p class="fin-subtitle-desc">{{ total }} materiales registrados. Lista desde /api/v1/wms/materiales (Aetheron ERP).</p>
+        </div>
+        <div class="fin-header-actions">
+          <button class="fin-primary" type="button" (click)="openCreate()">+ Nuevo Material</button>
+        </div>
+      </header>
+
+      <app-wms-tabs></app-wms-tabs>
+
+      <div class="fin-panel">
+        <div class="fin-form-grid" style="grid-template-columns: 1fr auto; align-items: end;">
+          <label>Buscar
+            <input [(ngModel)]="q" placeholder="Buscar por código o nombre..." (keyup.enter)="load()" />
+          </label>
+          <div style="display:flex;gap:8px;">
+            <button class="fin-secondary" type="button" (click)="load()">Buscar</button>
+          </div>
+        </div>
       </div>
-      @if (loading) { <p style="color:#94a3b8;">Cargando…</p> }
-      @if (error) { <p style="color:#fca5a5;">{{ error }}</p> }
-      @if (!loading && !error) {
-        <div style="overflow:auto;border:1px solid #2a3448;border-radius:10px;">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr style="text-align:left;background:#111a2b;color:#8fa0b3;">
-              @for (c of cols; track c) { <th style="padding:10px 12px;border-bottom:1px solid #2a3448;">{{ c }}</th> }
-            </tr></thead>
-            <tbody>
-              @for (row of rows; track row.id ?? $index) {
-                <tr style="border-bottom:1px solid #1e293b;">
-                  @for (c of cols; track c) { <td style="padding:10px 12px;">{{ fmt(row[c]) }}</td> }
-                </tr>
-              }
-              @if (!rows.length) { <tr><td [attr.colspan]="cols.length" style="padding:16px;color:#94a3b8;">Sin registros (si la BD tiene datos en public.wms_* verifica que el backend use DB_SCHEMA=public y que la tabla sea 'materiales' en public).</td></tr> }
-            </tbody>
-          </table>
+
+      @if (loading) { <div class="fin-notice">Cargando…</div> }
+      @if (error) { <div class="fin-alert fin-alert-error" role="alert">{{ error }}</div> }
+
+      @if (!loading) {
+        <div class="fin-panel">
+          @if (rows.length === 0) {
+            <div class="fin-empty">Sin resultados. Si esperas datos, verifica sesión Aetheron y que el servicio logística esté en 18005 con BD en public.</div>
+          } @else {
+            <div class="fin-table-wrap">
+              <table class="fin-table">
+                <thead>
+                  <tr>
+                    <th>Código SAP</th>
+                    <th>Material</th>
+                    <th>Categoría</th>
+                    <th>Unidad</th>
+                    <th style="text-align:right;">Stock</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of rows; track row.id ?? $index) {
+                    <tr>
+                      <td><b>{{ row.codigo_sap || '—' }}</b></td>
+                      <td>{{ row.nombre || '—' }}</td>
+                      <td>{{ row.categoria || '—' }}</td>
+                      <td>{{ row.unidad_medida || '—' }}</td>
+                      <td style="text-align:right;">{{ fmtNum(row.stock_actual) }}</td>
+                      <td>{{ row.activo === false ? 'Inactivo' : 'Activo' }}</td>
+                      <td>
+                        <button class="fin-secondary" type="button" (click)="openEdit(row)">Editar</button>
+                        <button class="fin-secondary" type="button" (click)="confirmDelete(row)" style="margin-left:6px;">Eliminar</button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            @if (totalPages > 1) {
+              <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;color:var(--muted);font-size:13px;flex-wrap:wrap;gap:8px;">
+                <span>Página {{ page }} de {{ totalPages }} ({{ total }} registros)</span>
+                <div style="display:flex;gap:4px;">
+                  <button class="fin-secondary" type="button" [disabled]="page<=1" (click)="goPage(page-1)">«</button>
+                  <button class="fin-secondary" type="button" [disabled]="page>=totalPages" (click)="goPage(page+1)">»</button>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      }
+
+      @if (showForm) {
+        <div class="fin-panel" style="margin-top:12px;">
+          <h3 style="margin:0 0 12px;">{{ editItem ? 'Editar Material' : 'Nuevo Material' }}</h3>
+          <div class="fin-form-grid">
+            <label>Código SAP *<input [(ngModel)]="form.codigo_sap" [disabled]="!!editItem" /></label>
+            <label>Unidad<select [(ngModel)]="form.unidad_medida"><option *ngFor="let u of unidades" [value]="u">{{u}}</option></select></label>
+            <label>Nombre *<input [(ngModel)]="form.nombre" /></label>
+            <label>Categoría<input [(ngModel)]="form.categoria" placeholder="Opcional" /></label>
+            <label>Stock mínimo<input type="number" [(ngModel)]="form.stock_minimo" /></label>
+            <label>Stock máximo<input type="number" [(ngModel)]="form.stock_maximo" /></label>
+            <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" [(ngModel)]="form.es_peligroso" /> Material peligroso (MATPEL)</label>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="fin-primary" type="button" (click)="save()" [disabled]="saving">{{ saving ? 'Guardando…' : (editItem ? 'Guardar' : 'Crear') }}</button>
+            <button class="fin-secondary" type="button" (click)="closeForm()">Cancelar</button>
+          </div>
+        </div>
+      }
+
+      @if (deleteTarget) {
+        <div class="fin-panel" style="margin-top:12px;border-color:#f87171;">
+          <p style="margin:0 0 12px;">¿Eliminar <b>{{ deleteTarget.codigo_sap }}</b> - {{ deleteTarget.nombre }}?</p>
+          <div style="display:flex;gap:8px;">
+            <button class="fin-primary" type="button" (click)="doDelete()">Eliminar</button>
+            <button class="fin-secondary" type="button" (click)="deleteTarget=null">Cancelar</button>
+          </div>
         </div>
       }
     </section>
@@ -45,37 +122,97 @@ export class WmsMaterialesComponent implements OnInit {
   loading = false;
   error = '';
   rows: any[] = [];
-  cols: string[] = ['codigo_sap', 'nombre', 'unidad_medida', 'stock_minimo', 'stock_maximo', 'activo'];
+  total = 0;
+  page = 1;
+  perPage = 25;
+  totalPages = 1;
+  unidades = ['UN', 'KG', 'LT', 'MT', 'M2', 'TN', 'GL', 'PAR'];
+
+  showForm = false;
+  editItem: any = null;
+  saving = false;
+  form: any = { codigo_sap: '', nombre: '', categoria: '', unidad_medida: 'UN', es_peligroso: false, stock_minimo: '', stock_maximo: '' };
+
+  deleteTarget: any = null;
+
   ngOnInit(): void { this.load(); }
   private authHeaders(): { headers?: HttpHeaders } {
-    const t = localStorage.getItem('aethereon.wms_access_token');
+    const t = localStorage.getItem('aethereon.access_token');
     return t ? { headers: new HttpHeaders({ Authorization: `Bearer ${t}` }) } : {};
   }
   load(): void {
     this.loading = true;
     this.error = '';
-    let params = new HttpParams().set('page', '1').set('per_page', '100');
+    let params = new HttpParams().set('page', String(this.page)).set('per_page', String(this.perPage));
     if (this.q.trim()) params = params.set('search', this.q.trim());
-    this.http.get<any>('/api/wms/materiales', { params, ...this.authHeaders() }).subscribe({
+    this.http.get<any>('/api/v1/wms/materiales', { params, ...this.authHeaders() }).subscribe({
       next: (r) => {
-        const data = Array.isArray(r) ? r : (r?.items || r?.data || r?.results || []);
-        this.rows = Array.isArray(data) ? data : [];
-        if (this.rows.length) {
-          const preferred = ['codigo_sap', 'nombre', 'unidad_medida', 'stock_minimo', 'stock_maximo', 'activo'];
-          this.cols = preferred.filter(c => c in this.rows[0]);
+        if (Array.isArray(r)) {
+          this.rows = r;
+          this.total = r.length;
+        } else {
+          this.rows = r?.items || r?.data || r?.results || [];
+          this.total = r?.total ?? r?.pagination?.total ?? this.rows.length;
         }
+        this.totalPages = Math.max(1, Math.ceil(this.total / this.perPage));
         this.loading = false;
       },
       error: (e) => {
         this.rows = [];
         this.loading = false;
-        if (e?.status === 401) {
-          this.error = 'No autorizado en WMS. Conéctate desde el módulo Logística (botón Conectar WMS) o verifica el token.';
-        } else {
-          this.error = e?.error?.detail || 'No se pudo cargar materiales. Verifica que el backend logística esté en 18005 y la BD en public.';
-        }
+        if (e?.status === 401) this.error = 'No autorizado. Inicia sesión en Aetheron ERP.';
+        else this.error = e?.error?.detail || 'No se pudo cargar materiales.';
       }
     });
   }
-  fmt(v: any): string { if (v == null || v === '') return '—'; if (typeof v === 'boolean') return v ? 'Sí' : 'No'; return String(v); }
+  goPage(p: number) { this.page = p; this.load(); }
+  fmtNum(v: any): string { if (v == null || v === '') return '—'; const n = Number(v); return isNaN(n) ? String(v) : n.toLocaleString(); }
+  openCreate() {
+    this.editItem = null;
+    this.form = { codigo_sap: '', nombre: '', categoria: '', unidad_medida: 'UN', es_peligroso: false, stock_minimo: '', stock_maximo: '' };
+    this.showForm = true;
+  }
+  openEdit(row: any) {
+    this.editItem = row;
+    this.form = {
+      codigo_sap: row.codigo_sap || '',
+      nombre: row.nombre || '',
+      categoria: row.categoria || '',
+      unidad_medida: row.unidad_medida || 'UN',
+      es_peligroso: !!row.es_peligroso,
+      stock_minimo: row.stock_minimo ?? '',
+      stock_maximo: row.stock_maximo ?? '',
+    };
+    this.showForm = true;
+  }
+  closeForm() { this.showForm = false; this.editItem = null; }
+  save() {
+    if (!this.form.codigo_sap?.trim() || !this.form.nombre?.trim()) { this.error = 'Código SAP y Nombre son requeridos.'; return; }
+    this.saving = true;
+    this.error = '';
+    const payload: any = {
+      codigo_sap: this.form.codigo_sap.trim(),
+      nombre: this.form.nombre.trim(),
+      categoria: this.form.categoria?.trim() || null,
+      unidad_medida: this.form.unidad_medida || 'UN',
+      es_peligroso: !!this.form.es_peligroso,
+      stock_minimo: this.form.stock_minimo === '' || this.form.stock_minimo == null ? null : Number(this.form.stock_minimo),
+      stock_maximo: this.form.stock_maximo === '' || this.form.stock_maximo == null ? null : Number(this.form.stock_maximo),
+    };
+    const req = this.editItem
+      ? this.http.put(`/api/v1/wms/materiales/${this.editItem.id}`, payload, this.authHeaders())
+      : this.http.post('/api/v1/wms/materiales', payload, this.authHeaders());
+    req.subscribe({
+      next: () => { this.saving = false; this.closeForm(); this.load(); },
+      error: (e) => { this.saving = false; this.error = e?.error?.detail || 'No se pudo guardar el material.'; }
+    });
+  }
+  confirmDelete(row: any) { this.deleteTarget = row; }
+  doDelete() {
+    if (!this.deleteTarget) return;
+    this.http.delete(`/api/v1/wms/materiales/${this.deleteTarget.id}`, this.authHeaders()).subscribe({
+      next: () => { this.deleteTarget = null; this.load(); },
+      error: (e) => { this.error = e?.error?.detail || 'No se pudo eliminar.'; this.deleteTarget = null; }
+    });
+  }
 }

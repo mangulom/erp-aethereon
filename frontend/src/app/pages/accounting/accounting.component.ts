@@ -36,10 +36,32 @@ type BookType = 'journal' | 'ledger' | 'purchase' | 'sales' | 'cash';
 
         @if (tab==='accounts') {
           <div class="fin-panel">
-            <div class="fin-panel-title"><div><span class="panel-kicker">{{ t('PLAN DE CUENTAS', 'CHART OF ACCOUNTS') }}</span><h3>{{ t('Cuentas contables', 'General ledger accounts') }}</h3></div><button class="fin-primary" type="button" (click)="loadAccounts()" [disabled]="loadingAccounts">{{ loadingAccounts ? t('Cargando…','Loading…') : t('Actualizar','Refresh') }}</button></div>
+            <div class="fin-panel-title"><div><span class="panel-kicker">{{ t('PLAN DE CUENTAS', 'CHART OF ACCOUNTS') }}</span><h3>{{ t('Cuentas contables', 'General ledger accounts') }}</h3></div><div style="display:flex;gap:8px;"><button class="fin-primary" type="button" (click)="openAccountForm()">{{ t('Nueva cuenta','New account') }}</button><button class="fin-secondary" type="button" (click)="loadAccounts()" [disabled]="loadingAccounts">{{ loadingAccounts ? t('Cargando…','Loading…') : t('Actualizar','Refresh') }}</button></div></div>
             @if (accounts.length===0 && !loadingAccounts) { <div class="fin-empty">{{ t('No hay cuentas registradas.', 'No accounts registered.') }}</div> }
-            @else { <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>{{ t('Código','Code') }}</th><th>{{ t('Nombre','Name') }}</th><th>{{ t('Tipo','Type') }}</th><th>{{ t('Subtipo','Subtype') }}</th><th>{{ t('Moneda','Currency') }}</th><th>{{ t('Estado','Status') }}</th></tr></thead><tbody>@for (a of accounts; track a.id) { <tr><td><b>{{ a.code }}</b></td><td>{{ a.name }}</td><td>{{ a.account_type }}</td><td>{{ a.account_subtype||'—' }}</td><td>{{ a.currency }}</td><td>{{ a.is_active?t('Activo','Active'):t('Inactivo','Inactive') }}</td></tr> }</tbody></table></div> }
+            @else { <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>{{ t('Código','Code') }}</th><th>{{ t('Nombre','Name') }}</th><th>{{ t('Tipo','Type') }}</th><th>{{ t('Subtipo','Subtype') }}</th><th>{{ t('Moneda','Currency') }}</th><th>{{ t('Estado','Status') }}</th><th>{{ t('Acciones','Actions') }}</th></tr></thead><tbody>@for (a of accounts; track a.id) { <tr><td><b>{{ a.code }}</b></td><td>{{ a.name }}</td><td>{{ a.account_type }}</td><td>{{ a.account_subtype||'—' }}</td><td>{{ a.currency }}</td><td>{{ a.is_active?t('Activo','Active'):t('Inactivo','Inactive') }}</td><td><button class="fin-secondary" type="button" (click)="openAccountForm(a)">{{ t('Editar','Edit') }}</button> <button class="fin-secondary" type="button" (click)="confirmDeleteAccount(a)">{{ t('Eliminar','Delete') }}</button></td></tr> }</tbody></table></div> }
           </div>
+          @if (showAccountForm) {
+            <div class="fin-panel" style="margin-top:12px;">
+              <h3 style="margin:0 0 12px;">{{ editingAccount ? t('Editar cuenta','Edit account') : t('Nueva cuenta','New account') }}</h3>
+              <div class="fin-form-grid">
+                <label>{{ t('Código','Code') }}<input [(ngModel)]="accountForm.code" [disabled]="!!editingAccount"></label>
+                <label>{{ t('Nombre','Name') }}<input [(ngModel)]="accountForm.name"></label>
+                <label>{{ t('Tipo','Type') }}<select [(ngModel)]="accountForm.account_type"><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="revenue">Revenue</option><option value="expense">Expense</option></select></label>
+                <label>{{ t('Subtipo','Subtype') }}<input [(ngModel)]="accountForm.account_subtype" placeholder="opcional"></label>
+                <label>{{ t('Moneda','Currency') }}<input [(ngModel)]="accountForm.currency" maxlength="3"></label>
+                <label>{{ t('Es grupo','Is group') }}<select [(ngModel)]="accountForm.is_group"><option [ngValue]="false">No</option><option [ngValue]="true">Yes</option></select></label>
+                <label>{{ t('Permite registro','Allow posting') }}<select [(ngModel)]="accountForm.allow_posting"><option [ngValue]="true">Yes</option><option [ngValue]="false">No</option></select></label>
+                <label>{{ t('Activa','Active') }}<select [(ngModel)]="accountForm.is_active"><option [ngValue]="true">Yes</option><option [ngValue]="false">No</option></select></label>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px;"><button class="fin-primary" type="button" [disabled]="savingAccount" (click)="saveAccount()">{{ savingAccount?t('Guardando…','Saving…'):t('Guardar','Save') }}</button><button class="fin-secondary" type="button" (click)="closeAccountForm()">{{ t('Cancelar','Cancel') }}</button></div>
+            </div>
+          }
+          @if (deleteAccountTarget) {
+            <div class="fin-panel" style="margin-top:12px;border-color:#f87171;">
+              <p style="margin:0 0 12px;">{{ t('¿Eliminar la cuenta','Delete account') }} <b>{{ deleteAccountTarget.code }}</b>?</p>
+              <div style="display:flex;gap:8px;"><button class="fin-primary" type="button" (click)="doDeleteAccount()">{{ t('Eliminar','Delete') }}</button><button class="fin-secondary" type="button" (click)="deleteAccountTarget=null">{{ t('Cancelar','Cancel') }}</button></div>
+            </div>
+          }
         }
 
         @if (tab==='journals') {
@@ -147,7 +169,33 @@ export class AccountingComponent implements OnInit {
 
   ngOnInit(): void { if (this.hasCompany) { this.loadAccounts(); this.loadFiscalYears(); } }
   setTab(t: AccTab) { this.tab = t; this.error = ''; if (t==='accounts') this.loadAccounts(); if (t==='journals') this.loadJournals(); if (t==='books') { this.loadAccounts(); this.loadFiscalYears(); this.loadInvoiceSeries(); } }
+  showAccountForm = false;
+  editingAccount: any = null;
+  savingAccount = false;
+  accountForm: any = { code:'', name:'', account_type:'asset', account_subtype:'', is_group:false, allow_posting:true, is_active:true, currency:'PEN' };
+  deleteAccountTarget: any = null;
   loadAccounts() { this.loadingAccounts = true; this.http.get<any[]>('/api/v1/finance/accounts', { params: this.params() }).subscribe({ next: r=>{this.accounts=r||[];this.loadingAccounts=false;}, error: e=>{this.error=e?.error?.detail||'Error';this.loadingAccounts=false;} }); }
+  openAccountForm(acc?: any) {
+    this.error = '';
+    if (acc) { this.editingAccount = acc; this.accountForm = { code:acc.code, name:acc.name, account_type:acc.account_type, account_subtype:acc.account_subtype||'', is_group:!!acc.is_group, allow_posting:acc.allow_posting!==false, is_active:acc.is_active!==false, currency:acc.currency||'PEN' }; }
+    else { this.editingAccount = null; this.accountForm = { code:'', name:'', account_type:'asset', account_subtype:'', is_group:false, allow_posting:true, is_active:true, currency:'PEN' }; }
+    this.showAccountForm = true;
+  }
+  closeAccountForm() { this.showAccountForm = false; this.editingAccount = null; }
+  saveAccount() {
+    if (!this.accountForm.code?.trim() || !this.accountForm.name?.trim()) { this.error = this.t('Código y nombre son requeridos.','Code and name are required.'); return; }
+    this.savingAccount = true; this.error = '';
+    const payload: any = { ...this.accountForm, account_subtype: this.accountForm.account_subtype || null };
+    const req = this.editingAccount
+      ? this.http.put(`/api/v1/finance/accounts/${this.editingAccount.id}`, payload)
+      : this.http.post('/api/v1/finance/accounts', { company_id: this.companies.context.selectedCompanyId, ...payload });
+    req.subscribe({ next: ()=>{ this.savingAccount=false; this.closeAccountForm(); this.loadAccounts(); }, error: e=>{ this.savingAccount=false; this.error=e?.error?.detail||this.t('No se pudo guardar.','Could not save.'); } });
+  }
+  confirmDeleteAccount(acc: any) { this.deleteAccountTarget = acc; }
+  doDeleteAccount() {
+    if (!this.deleteAccountTarget) return;
+    this.http.delete(`/api/v1/finance/accounts/${this.deleteAccountTarget.id}`).subscribe({ next: ()=>{ this.deleteAccountTarget=null; this.loadAccounts(); }, error: e=>{ this.error=e?.error?.detail||this.t('No se pudo eliminar.','Could not delete.'); this.deleteAccountTarget=null; } });
+  }
   loadFiscalYears() { this.http.get<any[]>('/api/v1/finance/fiscal-years', { params: this.params() }).subscribe({ next: r=>{this.fiscalYears=r||[]; if(!this.ledgerFiscalYearId && r?.length) this.ledgerFiscalYearId = r.find((x:any)=>!x.is_closed)?.id || r[0]?.id || '';}, error: ()=>{} }); }
   loadJournals() { this.loadingJournals = true; this.http.get<any[]>('/api/v1/finance/journal-entries', { params: this.params() }).subscribe({ next: r=>{this.journals=(r||[]).slice(0,50);this.loadingJournals=false;}, error: e=>{this.error=e?.error?.detail||'Error';this.loadingJournals=false;} }); }
   loadInvoiceSeries() { this.seriesLoading = true; this.http.get<any[]>('/api/v1/finance/invoice-series', { params: this.params() }).subscribe({ next: r=>{this.invoiceSeries=r||[];this.seriesLoading=false;}, error: e=>{this.error=e?.error?.detail||'Error';this.seriesLoading=false;} }); }

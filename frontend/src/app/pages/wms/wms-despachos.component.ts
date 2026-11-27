@@ -1,47 +1,84 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { WmsTabsComponent } from './wms-tabs.component';
 
 @Component({
   selector: 'app-wms-despachos',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, WmsTabsComponent],
   template: `
-    <section style="padding:24px;color:#e8edf5;">
-      <h2>WMS · Despachos</h2>
-      <div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;">
-        <input [(ngModel)]="q" placeholder="Buscar..." style="padding:8px 10px;border-radius:8px;border:1px solid #334155;background:#0b1422;color:#e8edf5;" (keyup.enter)="load()" />
-        <button type="button" (click)="load()" style="padding:8px 14px;border-radius:8px;border:1px solid #43c6b0;background:#43c6b0;color:#072622;font-weight:600;cursor:pointer;">Buscar</button>
-        <a routerLink="/logistics/wms/despachos/nuevo" style="padding:8px 14px;border-radius:8px;border:1px solid #43c6b0;color:#43c6b0;text-decoration:none;">Nuevo despacho (flujo)</a>
-        <a routerLink="/logistics/wms" style="padding:8px 14px;border-radius:8px;border:1px solid #555;color:#ccc;text-decoration:none;">← Panel WMS</a>
+    <section class="fin-workspace">
+      <header class="fin-header fin-header-advanced">
+        <div class="fin-header-main">
+          <span class="panel-kicker">Logística · WMS</span>
+          <h1 class="fin-title-main">Despachos</h1>
+          <p class="fin-subtitle-desc">Listado de despachos desde el módulo WMS.</p>
+        </div>
+        <div class="fin-header-actions">
+          <a class="fin-primary fin-link-btn" routerLink="/logistics/wms/despachos/nuevo">+ Nuevo despacho</a>
+        </div>
+      </header>
+
+      <app-wms-tabs></app-wms-tabs>
+      <div class="fin-panel">
+        <div class="fin-form-grid" style="grid-template-columns: 1fr auto; align-items: end;">
+          <label>Buscar<input [(ngModel)]="q" placeholder="Buscar..." (keyup.enter)="load()" /></label>
+          <button class="fin-secondary" type="button" (click)="load()">Buscar</button>
+        </div>
       </div>
-      @if (loading) { <p style="color:#94a3b8;">Cargando…</p> }
-      @if (error) { <p style="color:#fca5a5;">{{ error }}</p> }
-      <div style="overflow:auto;border:1px solid #2a3448;border-radius:10px;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead><tr style="text-align:left;background:#111a2b;color:#8fa0b3;">@for (c of cols; track c) { <th style="padding:10px 12px;border-bottom:1px solid #2a3448;">{{ c }}</th> }</tr></thead>
-          <tbody>
-            @for (row of rows; track row.id ?? $index) { <tr style="border-bottom:1px solid #1e293b;">@for (c of cols; track c) { <td style="padding:10px 12px;">{{ row[c] ?? '—' }}</td> }</tr> }
-            @if (!rows.length && !loading) { <tr><td [attr.colspan]="cols.length||1" style="padding:16px;color:#94a3b8;">Sin registros.</td></tr> }
-          </tbody>
-        </table>
-      </div>
+      @if (loading) { <div class="fin-notice">Cargando…</div> }
+      @if (error) { <div class="fin-alert fin-alert-error">{{ error }}</div> }
+      @if (!loading) {
+        <div class="fin-panel">
+          @if (!rows.length) { <div class="fin-empty">Sin registros.</div> } @else {
+            <div class="fin-table-wrap">
+              <table class="fin-table">
+                <thead><tr>@for (c of cols; track c) { <th>{{ c }}</th> }<th>Acciones</th></tr></thead>
+                <tbody>@for (row of rows; track row.id ?? $index) { <tr>@for (c of cols; track c) { <td>{{ row[c] ?? '—' }}</td> }<td><a class="fin-secondary fin-link-btn" [routerLink]="['/logistics/wms/despachos', row.id]" style="margin-right:6px;">Ver/Editar</a><button class="fin-secondary" type="button" (click)="confirmDelete(row)">Eliminar</button></td></tr> }</tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+      @if (deleteTarget) {
+        <div class="fin-panel" style="margin-top:12px;border-color:#f87171;">
+          <p style="margin:0 0 12px;">¿Eliminar despacho <b>{{ deleteTarget.numero || deleteTarget.id }}</b>?</p>
+          <div style="display:flex;gap:8px;">
+            <button class="fin-primary" type="button" (click)="doDelete()">Eliminar</button>
+            <button class="fin-secondary" type="button" (click)="deleteTarget=null">Cancelar</button>
+          </div>
+        </div>
+      }
     </section>
   `
 })
 export class WmsDespachosComponent implements OnInit {
   private readonly http = inject(HttpClient);
   q = ''; loading = false; error = ''; rows: any[] = []; cols: string[] = ['numero', 'pedido_sap', 'cliente_id', 'planta_id', 'estado', 'fecha_despacho'];
+  deleteTarget: any = null;
   ngOnInit(): void { this.load(); }
+  private authHeaders(): { headers?: HttpHeaders } {
+    const t = localStorage.getItem('aethereon.access_token');
+    return t ? { headers: new HttpHeaders({ Authorization: `Bearer ${t}` }) } : {};
+  }
   load(): void {
     this.loading = true; this.error = '';
     let params = new HttpParams().set('page', '1').set('per_page', '100');
     if (this.q.trim()) params = params.set('search', this.q.trim());
-    this.http.get<any>('/api/wms/despachos', { params }).subscribe({
+    this.http.get<any>('/api/v1/wms/despachos', { params, ...this.authHeaders() }).subscribe({
       next: (r) => { const d = Array.isArray(r) ? r : (r?.items || r?.data || r?.results || []); this.rows = Array.isArray(d) ? d : []; if (this.rows.length) this.cols = Object.keys(this.rows[0]).slice(0, 8); this.loading = false; },
       error: (e) => { this.rows = []; this.loading = false; this.error = e?.error?.detail || 'No se pudo cargar despachos.'; }
+    });
+  }
+  confirmDelete(row: any) { this.deleteTarget = row; }
+  doDelete() {
+    if (!this.deleteTarget?.id) return;
+    this.http.delete(`/api/v1/wms/despachos/${this.deleteTarget.id}`, this.authHeaders()).subscribe({
+      next: () => { this.deleteTarget = null; this.load(); },
+      error: (e) => { this.error = e?.error?.detail || 'No se pudo eliminar.'; this.deleteTarget = null; }
     });
   }
 }

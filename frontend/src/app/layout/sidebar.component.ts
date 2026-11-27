@@ -21,11 +21,13 @@ export class SidebarComponent {
 
   readonly theme = inject(ThemeService);
   showThemeModal = false;
+  wmsExpanded = true;
 
   t(es: string, en: string): string {
     return this.language === 'es' ? es : en;
   }
   toggleGroup(group: string) { this.toggleGroupEvent.emit(group); }
+  toggleWms() { this.wmsExpanded = !this.wmsExpanded; }
   logout() { this.logoutEvent.emit(); }
   toggleProfileMenu() { this.toggleProfileMenuEvent.emit(); }
   openThemeModal() { this.showThemeModal = true; }

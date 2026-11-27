@@ -23,6 +23,6 @@ $env:PORT = '18005'
 $env:ENV = 'development'
 $env:FORCE_HTTPS = 'false'
 $env:TRUSTED_HOSTS = '*'
-$env:CORS_ALLOWED_ORIGINS = 'http://localhost:4200,http://127.0.0.1:4200'
+$env:CORS_ALLOWED_ORIGINS = 'http://localhost:42000,http://127.0.0.1:42000'
 Set-Location $backendRoot
 & $py run_logistics.py

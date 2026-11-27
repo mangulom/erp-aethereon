@@ -5,12 +5,15 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
 import uvicorn
 
 
 def main() -> None:
     backend_dir = Path(__file__).resolve().parent
     logistics_dir = backend_dir / "services" / "logistics"
+    load_dotenv(logistics_dir / ".env")
+    load_dotenv(backend_dir.parent / ".env")
 
     os.chdir(logistics_dir)
     sys.path.insert(0, str(logistics_dir))

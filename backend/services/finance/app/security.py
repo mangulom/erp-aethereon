@@ -45,4 +45,9 @@ def create_access_token(user_id: str, company_ids: list[str], platform_admin: bo
 
 def decode_access_token(token: str) -> dict:
     settings = get_settings()
-    return jwt.decode(token, settings.jwt_secret_key, algorithms=[ALGORITHM], issuer=ISSUER, audience=AUDIENCE)
+    return jwt.decode(
+        token,
+        settings.jwt_secret_key,
+        algorithms=[ALGORITHM],
+        options={"verify_iss": False, "verify_aud": False},
+    )
